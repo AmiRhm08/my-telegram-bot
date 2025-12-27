@@ -149,15 +149,18 @@ def admin_message(message):
 @bot.message_handler(func=lambda message: True)
 def handle_messages(message):
     chat_id = message.chat.id
-    user_name = message.from_user.first_name or "کاربر"
-    text = message.text.lower() if message.text else ""
+    username = message.from_user.username or "بدون یوزرنیم"
+    first_name = message.from_user.first_name or "نامشخص"
+    display_name = f"@{username}" if message.from_user.username else first_name
     
-    # ارسال همه پیام‌های مریم به ادمین (خودت)
+    # ارسال پیام کاربر به ادمین (فقط یوزرنیم/اسم + chat_id + محتوا)
     try:
-        content = message.text or '[استیکر/عکس/ویس]'
-        bot.send_message(ADMIN_ID, f"پیام جدید از مریم جونم (chat_id: {chat_id}):\n{content}")
+        content = message.text or "None"  # اگر متن نباشه، None می‌نویسه (یعنی استیکر/عکس/ویس)
+        bot.send_message(ADMIN_ID, f"{display_name} (chat_id: {chat_id}):\n{content}")
     except:
         pass
+    
+    text = message.text.lower() if message.text else ""
     
     # پاسخ به دکمه‌ها و کلمات خاص
     if any(phrase in text for phrase in ["دلم واست تنگولیده"]):
@@ -172,6 +175,7 @@ def handle_messages(message):
 print("بات عاشقانه کامل برای مریم جونم شروع شد!")
 
 bot.infinity_polling()
+
 
 
 
