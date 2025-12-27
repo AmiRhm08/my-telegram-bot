@@ -1,6 +1,5 @@
 import os
 os.system("pip install pyTelegramBotAPI")
-
 import telebot
 import threading
 import time
@@ -12,7 +11,7 @@ TOKEN = "YOUR_TOKEN_HERE"  # توکن واقعی باتت رو اینجا بذا
 # Create the bot instance
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
-# List of romantic messages (you can add more!)
+# List of romantic messages
 romantic_messages = [
     "دلم برات تنگ شدههه ❤️",
     "تو بهترین اتفاق زندگی منی 😍",
@@ -25,7 +24,10 @@ romantic_messages = [
     "دورت بگردم همیشه، عشق زندگی من 🌸",
     "تو رویای شیرین هر شب منی ✨",
     "فقط بخوام یکی رو بغل کنم، فقط تویی 💑",
-    "دلم فقط برای تو می‌تپه ❤️❤️❤️"
+    "دلم فقط برای تو می‌تپه ❤️❤️❤️",
+    "مریم جونم، بدون تو هیچی نیستم 🥺",
+    "تو خورشید زندگی منی ☀️",
+    "دوست دارم تا ابد کنار تو باشم 💍"
 ]
 
 # Dictionary to store active users and their thread
@@ -44,21 +46,21 @@ def send_romantic_messages(chat_id):
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    user_name = message.from_user.first_name
     chat_id = message.chat.id
     
+    # Special welcome message for Maryam
     welcome_text = (
-        f"سلام <b>{user_name}</b> عشقم! 😍❤️\n\n"
-        "از حالا هر ۱۰ ثانیه یک پیام عاشقانه برات می‌فرستم!\n"
+        "<b>سلام مریم عزیزتر از جونم، این برای توعه ❤️</b>\n\n"
+        "از حالا هر ۱۰ ثانیه یک پیام عاشقانه فقط برای تو می‌فرستم 😍\n"
         "هر وقت خواستی تموم بشه، /stop رو بزن 💕"
     )
-    bot.reply_to(message, welcome_text)
+    bot.send_message(chat_id, welcome_text)
     
-    # Stop if user already active
+    # Stop if already sending
     if chat_id in active_users:
         active_users[chat_id].cancel()
     
-    # Start new thread for sending messages
+    # Start sending messages after 10 seconds
     thread = threading.Timer(10, send_romantic_messages, args=[chat_id])
     thread.daemon = True
     thread.start()
@@ -70,18 +72,17 @@ def stop(message):
     if chat_id in active_users:
         active_users[chat_id].cancel()
         del active_users[chat_id]
-        bot.reply_to(message, "پیام‌های عاشقانه متوقف شد 😢\nهر وقت دلت تنگ شد دوباره /start بزن 💕")
+        bot.reply_to(message, "پیام‌های عاشقانه متوقف شد 😢\nدلم برات تنگ می‌شه مریم جونم...\nهر وقت دلت خواست دوباره /start بزن 💕")
     else:
-        bot.reply_to(message, "هنوز چیزی شروع نشده که بخوای متوقف کنی! 😏\n/start بزن تا عشق بریزه!")
+        bot.reply_to(message, "هنوز شروع نشده که بخوای متوقف کنی! 😏\n/start بزن تا عشق بریزه برای مریم عزیزم ❤️")
 
-# Optional: handle normal text messages
+# Handle normal text messages
 @bot.message_handler(content_types=['text'])
 def echo(message):
-    bot.reply_to(message, "عشقم، من فقط منتظرم /start بزنی تا عاشقانه بفرستم برات ❤️\nیا اگر شروع شده، /stop بزن تا آروم بگیرم 😘")
+    bot.reply_to(message, "مریم جونم، منتظرم /start بزنی تا دوباره عاشقانه بفرستم برات 😘")
 
 # Startup message
-print("بات عاشقانه شروع شد و آماده ارسال عشق است!")
+print("بات عاشقانه برای مریم شروع شد!")
 
 # Start the bot
 bot.infinity_polling()
-
