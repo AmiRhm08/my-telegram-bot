@@ -130,7 +130,6 @@ def admin_message(message):
 @bot.message_handler(func=lambda message: True)
 def handle_messages(message):
     chat_id = message.chat.id
-    message_id = message.message_id
     username = message.from_user.username or "بدون یوزرنیم"
     first_name = message.from_user.first_name or "نامشخص"
     display_name = f"@{username}" if message.from_user.username else first_name
@@ -138,14 +137,6 @@ def handle_messages(message):
     try:
         content = message.text or "None"
         bot.send_message(ADMIN_ID, f"{display_name} (chat_id: {chat_id}):\n{content}")
-    except:
-        pass
-    
-    # ری‌اکشن اتوماتیک روی پیام مریم
-    try:
-        reactions = ["❤️", "😘", "🥰", "💕", "😍", "💖", "🤗", "😊"]
-        chosen = random.choice(reactions)
-        bot.set_message_reaction(chat_id=chat_id, message_id=message_id, reaction=[{"type": "emoji", "emoji": chosen}])
     except:
         pass
     
@@ -163,7 +154,6 @@ def handle_messages(message):
 print("بات عاشقانه کامل برای مریم جونم شروع شد!")
 
 bot.infinity_polling()
-
 
 
 
