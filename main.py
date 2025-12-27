@@ -71,6 +71,7 @@ def start(message):
     
     # Send FIRST romantic message IMMEDIATELY
     first_message = get_next_message(chat_id)
+    time.sleep(3)
     bot.send_message(chat_id, first_message)
     
     # Cancel any previous thread
@@ -102,6 +103,7 @@ def echo(message):
 print("بات عاشقانه ساعتی برای مریم جونم شروع شد!")
 
 bot.infinity_polling()
+
 
 
 
