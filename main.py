@@ -7,13 +7,10 @@ import time
 import random
 from datetime import date, timedelta
 
-# Put your bot token directly here
 TOKEN = "8206760539:AAHS7iceJT5f2GjNgXU-MiOYat7cyxeBPuU"
 
-# Create the bot instance
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
-# List of romantic messages with Maryam's name (دقیقاً متن‌های خودت)
 romantic_messages = [
     "مریم جونم، تو بهترین اتفاق زندگی منی. ❤️",
     "هر لحظه به فکرتم عشقم. 💕",
@@ -25,14 +22,11 @@ romantic_messages = [
     "مریم، تو فردای منی."
 ]
 
-# Fixed start date: today (Dec 27, 2025) = day 269
 FIXED_START_DATE = date(2025, 12, 27) - timedelta(days=268)
 
-# Store last sent message index for each user (anti-repetition)
 last_sent_index = {}
 
 def get_next_message(chat_id):
-    """Choose a random message different from the last one"""
     if len(romantic_messages) <= 1:
         return romantic_messages[0]
     
@@ -47,10 +41,8 @@ def get_next_message(chat_id):
     return romantic_messages[new_index]
 
 def send_romantic_messages(chat_id):
-    """Send message every hour with day counter"""
     while chat_id in active_users:
         days_in_love = (date.today() - FIXED_START_DATE).days + 1
-        
         message = get_next_message(chat_id)
         full_message = f"{message}\n\nامروز روز <b>{days_in_love}</b> ام ماست نفس من.❤️"
         
@@ -58,12 +50,10 @@ def send_romantic_messages(chat_id):
             bot.send_message(chat_id, full_message)
         except:
             break
-        time.sleep(3600)  # 1 hour
+        time.sleep(3600)
 
-# Track active users
 active_users = {}
 
-# Create romantic keyboard (دکمه‌های خودت)
 def create_love_keyboard():
     markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     markup.add(
@@ -73,17 +63,15 @@ def create_love_keyboard():
     )
     return markup
 
-# --- ادمین ID (خودت) ---
-ADMIN_ID = 6120112176  # ID تلگرامت (از @userinfobot گرفتی)
+ADMIN_ID = 6120112176
 
 @bot.message_handler(commands=['start'])
 def start(message):
     chat_id = message.chat.id
     user_name = message.from_user.first_name or "کاربر"
     
-    # به ادمین (خودت) خبر بده که مریم /start زده + chat_id
     try:
-        bot.send_message(ADMIN_ID, f"مریم جونم /start زد!\nاسم: {user_name}\nchat_id: {chat_id}")
+        bot.send_message(ADMIN_ID, f"کاربر /start زد!\nاسم: {user_name}\nchat_id: {chat_id}")
     except:
         pass
     
@@ -94,17 +82,14 @@ def start(message):
     )
     bot.send_message(chat_id, welcome_text, reply_markup=create_love_keyboard())
     
-    # اولین پیام عاشقانه فوری
     days_in_love = (date.today() - FIXED_START_DATE).days + 1
     first_message = get_next_message(chat_id)
     full_first = f"{first_message}\n\nامروز روز <b>{days_in_love}</b> ام ماست نفس من.🤍🤍🤍"
     bot.send_message(chat_id, full_first)
     
-    # لغو ترد قبلی اگر وجود داشت
     if chat_id in active_users:
         active_users[chat_id].cancel()
     
-    # شروع ارسال ساعتی
     thread = threading.Timer(3600, send_romantic_messages, args=[chat_id])
     thread.daemon = True
     thread.start()
@@ -122,30 +107,31 @@ def stop(message):
     else:
         bot.reply_to(message, "باید اول /start رو بزنی کوشولو")
 
-# --- قابلیت ادمین: ارسال پیام به مریم ---
+# --- قابلیت ادمین: ارسال پیام به chat_id خاص ---
 @bot.message_handler(commands=['msg'])
 def admin_message(message):
     if message.from_user.id != ADMIN_ID:
         return  # فقط تو می‌تونی استفاده کنی
     
     try:
-        text = message.text.split(maxsplit=1)[1]
-        if not text:
-            bot.reply_to(message, "بعد از /msg یه پیام بنویس 😅")
+        # فرمت: /msg <chat_id> متن پیام
+        parts = message.text.split(maxsplit=2)
+        if len(parts) < 3:
+            bot.reply_to(message, "استفاده: /msg <chat_id> متن پیام\nمثال: /msg 987654321 سلام نفس من ❤️")
             return
         
-        # ارسال به همه کاربران فعال (در عمل فقط مریم جونم)
-        for cid in list(active_users.keys()):
-            bot.send_message(cid, text + "\n\n— از امیرعلی ❤️")
+        target_chat_id = int(parts[1])
+        text = parts[2]
         
-        bot.reply_to(message, f"پیام فرستاده شد به مریم جونم:\n\n{text}")
+        bot.send_message(target_chat_id, text + "\n\n— از امیرعلی ❤️")
+        bot.reply_to(message, f"پیام با موفقیت فرستاده شد به chat_id: {target_chat_id}\n\n{text}")
     
-    except IndexError:
-        bot.reply_to(message, "استفاده: /msg متن پیام")
+    except ValueError:
+        bot.reply_to(message, "chat_id باید عدد باشه!")
     except Exception as e:
-        bot.reply_to(message, f"خطا: {str(e)}")
+        bot.reply_to(message, f"خطا در ارسال: {str(e)}")
 
-# --- هندل همه پیام‌ها (شامل ارسال به ادمین) ---
+# --- هندل همه پیام‌ها ---
 @bot.message_handler(func=lambda message: True)
 def handle_messages(message):
     chat_id = message.chat.id
@@ -153,16 +139,14 @@ def handle_messages(message):
     first_name = message.from_user.first_name or "نامشخص"
     display_name = f"@{username}" if message.from_user.username else first_name
     
-    # ارسال پیام کاربر به ادمین (فقط یوزرنیم/اسم + chat_id + محتوا)
     try:
-        content = message.text or "None"  # اگر متن نباشه، None می‌نویسه (یعنی استیکر/عکس/ویس)
+        content = message.text or "None"
         bot.send_message(ADMIN_ID, f"{display_name} (chat_id: {chat_id}):\n{content}")
     except:
         pass
     
     text = message.text.lower() if message.text else ""
     
-    # پاسخ به دکمه‌ها و کلمات خاص
     if any(phrase in text for phrase in ["دلم واست تنگولیده"]):
         bot.reply_to(message, "هر لحظه دلم واست تنگیده مریمم.")
     elif any(phrase in text for phrase in ["دوستت دارم 🤍", "عشقم", "عاشقتم"]):
