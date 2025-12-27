@@ -131,8 +131,36 @@ def handle_messages(message):
         bot.reply_to(message, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
 
 print("بات عاشقانه کامل برای مریم جونم شروع شد!")
+# --- قابلیت ادمین: فقط تو می‌تونی پیام بفرستی به مریم ---
+# اول ID تلگرامت رو از @userinfobot بگیر و اینجا بذار
+ADMIN_ID = 6120112176  # <<<--- ID خودت رو اینجا جایگزین کن (عدد بدون گیومه)
 
+@bot.message_handler(commands=['msg'])
+def admin_message(message):
+    # فقط ادمین (خودت) می‌تونه استفاده کنه
+    if message.from_user.id != ADMIN_ID:
+        return  # هیچ جوابی نمی‌ده به بقیه
+    
+    # فرمت دستور: /msg متن پیام دلخواه
+    try:
+        text = message.text.split(maxsplit=1)[1]  # متن بعد از /msg
+        if not text:
+            bot.reply_to(message, "بعد از /msg یه پیام بنویس 😅")
+            return
+        
+        # بات به همه کاربران فعال (یعنی مریم) پیام می‌فرسته
+        for chat_id in active_users.keys():
+            bot.send_message(chat_id, text + "\n\n— از امیرعلی ❤️")
+        
+        bot.reply_to(message, f"پیام فرستاده شد به مریم جونم:\n\n{text}")
+    
+    except IndexError:
+        bot.reply_to(message, "استفاده: /msg متن پیام")
+    except Exception as e:
+        bot.reply_to(message, f"خطا: {str(e)}")
+        
 bot.infinity_polling()
+
 
 
 
