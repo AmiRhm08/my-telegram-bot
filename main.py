@@ -35,7 +35,7 @@ def send_romantic_messages(chat_id):
         except:
             # If user blocked the bot or error, stop sending
             break
-        time.sleep(10)  # Wait 10 seconds
+        time.sleep(3600)  # Wait 3600 seconds
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -43,7 +43,7 @@ def start(message):
     
     # Special welcome message for Maryam
     welcome_text = (
-        "<b>سلام همسر عزیزتر از جونم، این برای توعه.❤️</b>\n\n"
+        "<b>.سلام همسر عزیزتر از جونم، این برای توعه ❤️</b>\n\n"
         "از الان هر ۱۰ ثانیه یه پیام واست میفرستم \n"
         "هر وقت خواستی تموم بشه، /stop رو بزن💕"
     )
@@ -54,7 +54,7 @@ def start(message):
         active_users[chat_id].cancel()
     
     # Start sending messages after 10 seconds
-    thread = threading.Timer(10, send_romantic_messages, args=[chat_id])
+    thread = threading.Timer(3600, send_romantic_messages, args=[chat_id])
     thread.daemon = True
     thread.start()
     active_users[chat_id] = thread
@@ -79,7 +79,6 @@ print("بات عاشقانه برای مریم شروع شد!")
 
 # Start the bot
 bot.infinity_polling()
-
 
 
 
