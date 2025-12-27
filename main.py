@@ -6,7 +6,6 @@ import threading
 import time
 import random
 from datetime import date, timedelta
-
 # Put your bot token directly here
 TOKEN = "8206760539:AAHS7iceJT5f2GjNgXU-MiOYat7cyxeBPuU"
 
@@ -166,6 +165,7 @@ def admin_message(message):
         bot.reply_to(message, f"خطا: {str(e)}")
         
 bot.infinity_polling()
+
 
 
 
