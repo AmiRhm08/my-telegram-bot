@@ -129,7 +129,7 @@ def handle_messages(message):
     # Keyboard buttons and special phrases
     if any(phrase in text for phrase in ["دلم واست تنگولیده"]):
         bot.reply_to(message, "هر لحظه دلم واست تنگیده مریمم.")
-    elif any(phrase in text for phrase in ["دوست دارم🤍", "عشقم", "عاشقتم"]):
+    elif any(phrase in text for phrase in ["دوستت دارم 🤍", "عشقم", "عاشقتم"]):
         bot.reply_to(message, "همه چیز منییی؛ عاچقتم و دوستت میدالم.")
     elif any(phrase in text for phrase in ["بوس", "بوسه"]):
         bot.reply_to(message, "بوس بهت عزیزدلم.")
@@ -139,6 +139,7 @@ def handle_messages(message):
 print("بات عاشقانه کامل برای مریم جونم شروع شد!")
 
 bot.infinity_polling()
+
 
 
 
