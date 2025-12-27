@@ -52,7 +52,7 @@ def send_romantic_messages(chat_id):
         days_in_love = (date.today() - FIXED_START_DATE).days + 1
         
         message = get_next_message(chat_id)
-        full_message = f"{message}\n\nامروز روز <b>{days_in_love}</b> امه که عاشقتم مریمم.❤️"
+        full_message = f"{message}\n\nامروز روز <b>{days_in_love}</b> ام ماست نفس من.❤️"
         
         try:
             bot.send_message(chat_id, full_message)
@@ -90,7 +90,7 @@ def start(message):
     
     # Send first romantic message immediately
     first_message = get_next_message(chat_id)
-    full_first = f"{first_message}\n\nامروز روز <b>{days_in_love}</b> امه که عاشقتم مریم جونم ❤️"
+    full_first = f"{first_message}\n\nامروز روز <b>{days_in_love}</b> ام ماست نفس من. ❤️"
     bot.send_message(chat_id, full_first)
     
     # Cancel previous thread
@@ -139,6 +139,7 @@ def handle_messages(message):
 print("بات عاشقانه کامل برای مریم جونم شروع شد!")
 
 bot.infinity_polling()
+
 
 
 
