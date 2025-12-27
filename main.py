@@ -1,5 +1,7 @@
-import telebot
+import os
+os.system("pip install pyTelegramBotAPI")
 
+import telebot
 # Put your bot token directly here (from @BotFather)
 TOKEN = "8206760539:AAHS7iceJT5f2GjNgXU-MiOYat7cyxeBPuU"  # مثال: 8206760539:AAHxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -43,3 +45,4 @@ print("Bot started successfully with direct token!")
 
 # Start listening for messages
 bot.infinity_polling()
+
