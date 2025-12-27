@@ -162,7 +162,8 @@ def handle_messages(message):
 
 print("بات عاشقانه کامل برای مریم جونم شروع شد!")
 
-bot.infinity_polling(non_stop=True, interval=60)
+bot.infinity_polling()
+
 
 
 
