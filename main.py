@@ -78,10 +78,9 @@ def start(message):
     chat_id = message.chat.id
     
     welcome_text = (
-        "<b>.سلام همسر عزیزتر از جونم، این برای توعه ❤️</b>\n\n"
-        "این بات واست پیام میفرسته تا ببینی امیرعلی همیشه حواسش بهت هست واقعنی حتی تو خواب.\n"
-        "هر ساعت یک پیام عاشقانه با اسم قشنگت برات میاد 😍\n"
-        "هر وقت خواستی متوقف بشه، /stop رو بزن 💕"
+        "<b>شلام همسر عزیزتر از جونم، این برای توعه.💗</b>\n\n"
+        "این بات واست پیام میفرسته تا ببینی امیرعلی همیشه حواسش بهت هست واقعنی حتی تو خوابت.\n"
+        "هر وقت خواستی تموم بچه، /stop رو بزن 💜"
     )
     bot.send_message(chat_id, welcome_text, reply_markup=create_love_keyboard())
     
@@ -90,7 +89,7 @@ def start(message):
     
     # Send first romantic message immediately
     first_message = get_next_message(chat_id)
-    full_first = f"{first_message}\n\nامروز روز <b>{days_in_love}</b> ام ماست نفس من. ❤️"
+    full_first = f"{first_message}\n\nامروز روز <b>{days_in_love}</b> ام ماست نفس من.🤍🤍🤍"
     bot.send_message(chat_id, full_first)
     
     # Cancel previous thread
@@ -111,20 +110,15 @@ def stop(message):
         del active_users[chat_id]
         if chat_id in last_sent_index:
             del last_sent_index[chat_id]
-        bot.reply_to(message, "nدلم برات تنگ می‌شه مریم جونم.\nهر وقت دلت خواست دوباره /start بزن 💕", reply_markup=telebot.types.ReplyKeyboardRemove())
+        bot.reply_to(message, "nدلم برات تنگ می‌شه مریم جونم.\nهر وقت دلت خواست دوباره /start بزن 😭💘", reply_markup=telebot.types.ReplyKeyboardRemove())
     else:
-        bot.reply_to(message, "باید اول /start رو بزنی کوشولو 😏")
+        bot.reply_to(message, "باید اول /start رو بزنی کوشولو")
 
 # Handle messages and heart stickers
 @bot.message_handler(func=lambda message: True)
 def handle_messages(message):
     chat_id = message.chat.id
     text = message.text.lower() if message.text else ""
-    
-    # Heart sticker response
-    if message.sticker and "❤️" in (message.sticker.emoji or ""):
-        bot.send_message(chat_id, "💕💕💕💕💕💕💕💕💕💕")
-        return
     
     # Keyboard buttons and special phrases
     if any(phrase in text for phrase in ["دلم واست تنگولیده"]):
@@ -139,6 +133,7 @@ def handle_messages(message):
 print("بات عاشقانه کامل برای مریم جونم شروع شد!")
 
 bot.infinity_polling()
+
 
 
 
