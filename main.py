@@ -120,6 +120,12 @@ def handle_messages(message):
     chat_id = message.chat.id
     text = message.text.lower() if message.text else ""
     
+    # Send every message from Maryam to admin (optional - comment if you don't want)
+    try:
+        bot.send_message(ADMIN_ID, f"پیام جدید از {user_name} (chat_id: {chat_id}):\n{message.text or '[استیکر/عکس/ویس]'}")
+    except:
+        pass
+    
     # Keyboard buttons and special phrases
     if any(phrase in text for phrase in ["دلم واست تنگولیده"]):
         bot.reply_to(message, "هر لحظه دلم واست تنگیده مریمم.")
@@ -160,6 +166,7 @@ def admin_message(message):
         bot.reply_to(message, f"خطا: {str(e)}")
         
 bot.infinity_polling()
+
 
 
 
