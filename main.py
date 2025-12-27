@@ -147,13 +147,20 @@ def handle_messages(message):
     elif any(phrase in text for phrase in ["دوستت دارم 🤍", "عشقم", "عاشقتم"]):
         bot.reply_to(message, "همه چیز منییی؛ عاچقتم و دوستت میدالم.")
     elif any(phrase in text for phrase in ["بوس", "بوسه", "بوس بوسیییی"]):
-        bot.reply_to(message, "بوس بهت عزیزدلم.")
+        try:
+            # <<<--- file_id ویس بوس خودت رو اینجا بذار
+            voice_file_id = "AwACAgQAAxkBAAEZuydpT-3m88pqNvEdOavx_u-gT3MBTAACzxgAAuNVgVJPLxSyV9rHdTYE"
+            bot.send_voice(chat_id, voice_file_id)
+            bot.send_message(chat_id, "موق موق موق 😘💋 از امیرعلی")
+        except:
+            bot.reply_to(message, "بوس بهت عزیزدلم.")
     else:
         bot.reply_to(message, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
 
 print("بات عاشقانه کامل برای مریم جونم شروع شد!")
 
 bot.infinity_polling()
+
 
 
 
