@@ -155,10 +155,51 @@ def handle_messages(message):
         bot.reply_to(message, "بوس بهت عزیزدلم.")
     else:
         bot.reply_to(message, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
-
+# --- گرفتن ری‌اکشن‌های کاربر روی پیام بات ---
+@bot.message_reaction()
+def handle_reaction(reaction):
+    chat_id = reaction.chat.id
+    user = reaction.user
+    if user is None:
+        return  # گاهی کاربر ناشناسه
+    
+    user_name = user.first_name or "کاربر"
+    username = f"@{user.username}" if user.username else ""
+    display_name = f"{username} ({user_name})".strip()
+    
+    new_reactions = reaction.new_reaction
+    if not new_reactions:
+        return
+    
+    # گرفتن ایموجی‌های ری‌اکشن (ممکنه چندتا باشه)
+    emojis = []
+    for r in new_reactions:
+        if r.type == "emoji":
+            emojis.append(r.emoji)
+    
+    if not emojis:
+        return
+    
+    # گرفتن متن پیام بات که ری‌اکشن روش گذاشته شده (اگر ممکن باشه)
+    try:
+        msg = bot.get_messages(chat_id, reaction.message_id)
+        message_text = msg.text or msg.caption or "[عکس/استیکر/ویس]"
+    except:
+        message_text = "[پیام پیدا نشد]"
+    
+    # ارسال نوتیفیکیشن به ادمین (تو)
+    try:
+        reaction_text = " ".join(emojis)
+        bot.send_message(ADMIN_ID, f"مریم جونم ری‌اکشن گذاشت: {reaction_text}\n"
+                                  f"روی پیام: {message_text}\n"
+                                  f"کاربر: {display_name} (chat_id: {chat_id})")
+    except:
+        pass
+        
 print("بات عاشقانه کامل برای مریم جونم شروع شد!")
 
 bot.infinity_polling()
+
 
 
 
