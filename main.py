@@ -1,3 +1,5 @@
+import os
+os.system("pip install pyTelegramBotAPI")
 import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 import threading
@@ -170,6 +172,7 @@ def handle_messages(message):
 print("بات عاشقانه کامل برای مریم جونم شروع شد!")
 
 bot.infinity_polling()
+
 
 
 
