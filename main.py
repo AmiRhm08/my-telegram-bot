@@ -6,7 +6,7 @@ import time
 import random
 
 # Put your bot token directly here
-TOKEN = "YOUR_TOKEN_HERE"  # توکن واقعی باتت رو اینجا بذار
+TOKEN = "8206760539:AAHS7iceJT5f2GjNgXU-MiOYat7cyxeBPuU"  # توکن واقعی باتت رو اینجا بذار
 
 # Create the bot instance
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
@@ -86,3 +86,4 @@ print("بات عاشقانه برای مریم شروع شد!")
 
 # Start the bot
 bot.infinity_polling()
+
