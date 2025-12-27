@@ -150,8 +150,7 @@ def handle_messages(message):
         try:
             # <<<--- file_id ویس بوس خودت رو اینجا بذار
             voice_file_id = "AwACAgQAAxkBAAEZuydpT-3m88pqNvEdOavx_u-gT3MBTAACzxgAAuNVgVJPLxSyV9rHdTYE"
-            bot.send_voice(chat_id, voice_file_id)
-            bot.send_message(chat_id, "هیهیهیهیهی.")
+            bot.send_voice(chat_id, voice_file_id, caption="هیهیهیهیهی." )
             bot.reply_to(message, "بوس بهت عزیزدلم.")
         except:
             bot.reply_to(message, "بوس بهت عزیزدلم.")
@@ -161,6 +160,7 @@ def handle_messages(message):
 print("بات عاشقانه کامل برای مریم جونم شروع شد!")
 
 bot.infinity_polling()
+
 
 
 
