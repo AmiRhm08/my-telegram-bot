@@ -25,6 +25,17 @@ romantic_messages = [
 FIXED_START_DATE = date(2025, 12, 27) - timedelta(days=268)
 
 last_sent_index = {}
+active_users = {}
+
+# کیبورد کش‌شده
+LOVE_KEYBOARD = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+LOVE_KEYBOARD.add(
+    KeyboardButton("دلم واست تنگولیده."),
+    KeyboardButton("دوستت دارم 🤍"),
+    KeyboardButton("بوس بوسیییی")
+)
+
+ADMIN_ID = 6120112176
 
 def get_next_message(chat_id):
     if len(romantic_messages) <= 1:
@@ -52,19 +63,6 @@ def send_romantic_messages(chat_id):
             break
         time.sleep(3600)
 
-active_users = {}
-
-def create_love_keyboard():
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    markup.add(
-        KeyboardButton("دلم واست تنگولیده."),
-        KeyboardButton("دوستت دارم 🤍"),
-        KeyboardButton("بوس بوسیییی")
-    )
-    return markup
-
-ADMIN_ID = 6120112176
-
 @bot.message_handler(commands=['start'])
 def start(message):
     chat_id = message.chat.id
@@ -80,7 +78,7 @@ def start(message):
         "این بات واست پیام میفرسته تا ببینی امیرعلی همیشه حواسش بهت هست واقعنی حتی تو خوابت.\n"
         "هر وقت خواستی تموم بچه، /stop رو بزن 💜"
     )
-    bot.send_message(chat_id, welcome_text, reply_markup=create_love_keyboard())
+    bot.send_message(chat_id, welcome_text, reply_markup=LOVE_KEYBOARD)
     
     days_in_love = (date.today() - FIXED_START_DATE).days + 1
     first_message = get_next_message(chat_id)
@@ -107,14 +105,12 @@ def stop(message):
     else:
         bot.reply_to(message, "باید اول /start رو بزنی کوشولو")
 
-# --- قابلیت ادمین: ارسال پیام به chat_id خاص ---
 @bot.message_handler(commands=['msg'])
 def admin_message(message):
     if message.from_user.id != ADMIN_ID:
-        return  # فقط تو می‌تونی استفاده کنی
+        return
     
     try:
-        # فرمت: /msg <chat_id> متن پیام
         parts = message.text.split(maxsplit=2)
         if len(parts) < 3:
             bot.reply_to(message, "استفاده: /msg <chat_id> متن پیام\nمثال: /msg 987654321 سلام نفس من ❤️")
@@ -131,10 +127,10 @@ def admin_message(message):
     except Exception as e:
         bot.reply_to(message, f"خطا در ارسال: {str(e)}")
 
-# --- هندل همه پیام‌ها ---
 @bot.message_handler(func=lambda message: True)
 def handle_messages(message):
     chat_id = message.chat.id
+    message_id = message.message_id
     username = message.from_user.username or "بدون یوزرنیم"
     first_name = message.from_user.first_name or "نامشخص"
     display_name = f"@{username}" if message.from_user.username else first_name
@@ -142,6 +138,14 @@ def handle_messages(message):
     try:
         content = message.text or "None"
         bot.send_message(ADMIN_ID, f"{display_name} (chat_id: {chat_id}):\n{content}")
+    except:
+        pass
+    
+    # ری‌اکشن اتوماتیک روی پیام مریم
+    try:
+        reactions = ["❤️", "😘", "🥰", "💕", "😍", "💖", "🤗", "😊"]
+        chosen = random.choice(reactions)
+        bot.set_message_reaction(chat_id=chat_id, message_id=message_id, reaction=[{"type": "emoji", "emoji": chosen}])
     except:
         pass
     
@@ -155,60 +159,10 @@ def handle_messages(message):
         bot.reply_to(message, "بوس بهت عزیزدلم.")
     else:
         bot.reply_to(message, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
-# --- گرفتن ری‌اکشن‌های کاربر روی پیام بات ---
-@bot.message_reaction()
-def handle_reaction(reaction):
-    chat_id = reaction.chat.id
-    user = reaction.user
-    if user is None:
-        return  # گاهی کاربر ناشناسه
-    
-    user_name = user.first_name or "کاربر"
-    username = f"@{user.username}" if user.username else ""
-    display_name = f"{username} ({user_name})".strip()
-    
-    new_reactions = reaction.new_reaction
-    if not new_reactions:
-        return
-    
-    # گرفتن ایموجی‌های ری‌اکشن (ممکنه چندتا باشه)
-    emojis = []
-    for r in new_reactions:
-        if r.type == "emoji":
-            emojis.append(r.emoji)
-    
-    if not emojis:
-        return
-    
-    # گرفتن متن پیام بات که ری‌اکشن روش گذاشته شده (اگر ممکن باشه)
-    try:
-        msg = bot.get_messages(chat_id, reaction.message_id)
-        message_text = msg.text or msg.caption or "[عکس/استیکر/ویس]"
-    except:
-        message_text = "[پیام پیدا نشد]"
-    
-    # ارسال نوتیفیکیشن به ادمین (تو)
-    try:
-        reaction_text = " ".join(emojis)
-        bot.send_message(ADMIN_ID, f"مریم جونم ری‌اکشن گذاشت: {reaction_text}\n"
-                                  f"روی پیام: {message_text}\n"
-                                  f"کاربر: {display_name} (chat_id: {chat_id})")
-    except:
-        pass
-        
+
 print("بات عاشقانه کامل برای مریم جونم شروع شد!")
 
-bot.infinity_polling()
-
-
-
-
-
-
-
-
-
-
+bot.infinity_polling(non_stop=True, interval=60)
 
 
 
