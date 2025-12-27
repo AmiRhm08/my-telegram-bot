@@ -14,10 +14,8 @@ def start(message):
     user_name = message.from_user.first_name
     
     welcome_text = (
-        f"سلام <b>{user_name}</b> عزیز! \n\n"
-        "من بات توام!\n"
-        "هر متنی که بفرستی، برات تکرارش می‌کنم.\n\n"
-        "برای راهنما /help رو بزن."
+        f"سلام <b>{user_name}</b> عزیزم! \n\n"
+        "من از طرف امیرعلی برای توام!\n"
     )
     bot.reply_to(message, welcome_text)
 
