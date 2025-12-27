@@ -13,14 +13,14 @@ bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
 # List of romantic messages
 romantic_messages = [
-    ".تو بهترین اتفاق زندگی منی",
+    "تو بهترین اتفاق زندگی منی.",
     "هر لحظه به فکرتم عشقم 💕",
-    ".من خوشحالم که تورو دارم یادت نره هیچوقت",
-    ".تو دلیل لبخند منی",
-    ".مثل یه بابا کوشولو هواتو دارم، مثل یه داداش میتونی بهم تکیه کنی، مثل یه شووهر بهت توجه میکنم من",
-    ".تو سقف رویای منی",
-    ".قلبم واست میتپه کوشولو",
-    ".تو فرای منی"
+    "من خوشحالم که تورو دارم یادت نره هیچوقت.",
+    "تو دلیل لبخند منی.",
+    "مثل یه بابا کوشولو هواتو دارم، مثل یه داداش میتونی بهم تکیه کنی، مثل یه شووهر بهت توجه میکنم من.",
+    "تو سقف رویای منی.",
+    "قلبم واست میتپه کوشولو.",
+    "تو فردای منی."
 ]
 
 # Dictionary to store active users and their thread
@@ -44,8 +44,8 @@ def start(message):
     # Special welcome message for Maryam
     welcome_text = (
         "<b>.سلام همسر عزیزتر از جونم، این برای توعه ❤️</b>\n\n"
-        "از حالا هر ۱۰ ثانیه یک پیام عاشقانه فقط برای تو می‌فرستم \n"
-        "هر وقت خواستی تموم بشه، /stop رو بزن 💕"
+        "از الان هر ۱۰ ثانیه یه پیام واست میفرستم \n"
+        "هر وقت خواستی تموم بشه، /stop رو بزن💕"
     )
     bot.send_message(chat_id, welcome_text)
     
@@ -65,20 +65,21 @@ def stop(message):
     if chat_id in active_users:
         active_users[chat_id].cancel()
         del active_users[chat_id]
-        bot.reply_to(message, "پیام‌های عاشقانه متوقف شد 😢\nدلم برات تنگ می‌شه مریم جونم...\nهر وقت دلت خواست دوباره /start بزن 💕")
+        bot.reply_to(message, "\nدلم برات تنگ می‌شه مریم جونم...\nهر وقت دلت خواست دوباره /start بزن 💕")
     else:
-        bot.reply_to(message, "هنوز شروع نشده که بخوای متوقف کنی! 😏\n/start بزن تا عشق بریزه برای مریم عزیزم ❤️")
+        bot.reply_to(message, "باید استارتو بزنی کوچک")
 
 # Handle normal text messages
 @bot.message_handler(content_types=['text'])
 def echo(message):
-    bot.reply_to(message, "مریم جونم، منتظرم /start بزنی تا دوباره عاشقانه بفرستم برات 😘")
+    bot.reply_to(message, "مریم جونم، منتظرم /start بزنی تا دوباره پیام بفرستم برات 😘")
 
 # Startup message
 print("بات عاشقانه برای مریم شروع شد!")
 
 # Start the bot
 bot.infinity_polling()
+
 
 
 
