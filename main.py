@@ -84,18 +84,21 @@ def start(message):
     chat_id = message.chat.id
     user_name = message.from_user.first_name or "کاربر"
     
+    # اگر مریم نباشه — بات خودش /stop کنه و بلاک کنه
+    if chat_id != MARYAM_CHAT_ID:
+        bot.send_message(chat_id, "این بات واسه‌ی تو نیست مزاحم نشو.")
+        try:
+            bot.send_message(ADMIN_ID, f"کسی سعی کرد بات رو استارت بزنه و بلاک شد!\nاسم: {user_name}\nchat_id: {chat_id}")
+        except:
+            pass
+        return  # هیچ ترد یا کیبوردی شروع نشه
+    
+    # فقط برای مریم جونم ادامه بده
     try:
-        bot.send_message(ADMIN_ID, f"کاربر /start زد!\nاسم: {user_name}\nchat_id: {chat_id}")
+        bot.send_message(ADMIN_ID, f"مریم جونم /start زد!\nchat_id: {chat_id}")
     except:
         pass
     
-    # اگر مریم جونم باشه، سوال ویژه بپرس
-    if chat_id == MARYAM_CHAT_ID:
-        bot.send_message(chat_id, "تو مریمی؟")
-        maryam_waiting_for_answer.add(chat_id)
-        return  # منتظر جواب بمونه، پیام خوشامدگویی عادی نره
-    
-    # برای بقیه کاربران، رفتار عادی
     welcome_text = (
         "<b>شلام همسر عزیزتر از جونم، این برای توعه.💗</b>\n\n"
         "این بات واست پیام میفرسته تا ببینی امیرعلی همیشه حواسش بهت هست واقعنی حتی تو خوابت.\n"
@@ -155,56 +158,13 @@ def admin_message(message):
 @bot.message_handler(func=lambda message: True)
 def handle_messages(message):
     chat_id = message.chat.id
-    text = message.text.lower() if message.text else ""
     
-    # چک کن آیا مریم منتظر جواب "تو مریمی؟" هست
-    if chat_id in maryam_waiting_for_answer:
-        if "آره" in text or "هوم" or "بله" or "مریم" in text:
-            special_message = "پس تو زندگیِ کسی که منو ساخته‌ای، بهم گفته بود که فهمیدم تویی بهت بگم بی‌اندازه عاشقته و دوستت داره. ❤️"
-            bot.send_message(chat_id, special_message)
-            maryam_waiting_for_answer.remove(chat_id)
-            
-            # حالا بات عادی شروع بشه
-            welcome_text = (
-                "<b>شلام همسر عزیزتر از جونم، این برای توعه.💗</b>\n\n"
-                "این بات واست پیام میفرسته تا ببینی امیرعلی همیشه حواسش بهت هست واقعنی حتی تو خوابت.\n"
-                "هر وقت خواستی تموم بچه، /stop رو بزن 💜"
-            )
-            bot.send_message(chat_id, welcome_text, reply_markup=LOVE_KEYBOARD)
-            
-            first_message = get_next_message(chat_id)
-            bot.send_message(chat_id, first_message)
-            
-            if chat_id in active_users:
-                active_users[chat_id].cancel()
-            
-            thread = threading.Timer(10, send_romantic_messages, args=[chat_id])
-            thread.daemon = True
-            thread.start()
-            active_users[chat_id] = thread
-        else:
-            # اگر گفت نه، بات عادی شروع بشه
-            maryam_waiting_for_answer.remove(chat_id)
-            welcome_text = (
-                "<b>شلام همسر عزیزتر از جونم، این برای توعه.💗</b>\n\n"
-                "این بات واست پیام میفرسته تا ببینی امیرعلی همیشه حواسش بهت هست واقعنی حتی تو خوابت.\n"
-                "هر وقت خواستی تموم بچه، /stop رو بزن 💜"
-            )
-            bot.send_message(chat_id, welcome_text, reply_markup=LOVE_KEYBOARD)
-            
-            first_message = get_next_message(chat_id)
-            bot.send_message(chat_id, first_message)
-            
-            if chat_id in active_users:
-                active_users[chat_id].cancel()
-            
-            thread = threading.Timer(10, send_romantic_messages, args=[chat_id])
-            thread.daemon = True
-            thread.start()
-            active_users[chat_id] = thread
-        return  # دیگه به بخش پایین نره
+    # اگر از مریم نباشه، کامل نادیده بگیر و بلاک کن
+    if chat_id != MARYAM_CHAT_ID:
+        bot.send_message(chat_id, "این بات واسه‌ی تو نیست مزاحم نشو.")
+        return
     
-    # فوروارد پیام به ادمین
+    # بقیه کد پاسخ به مریم (همون قبلی)
     username = message.from_user.username or "بدون یوزرنیم"
     first_name = message.from_user.first_name or "نامشخص"
     display_name = f"@{username}" if message.from_user.username else first_name
@@ -215,7 +175,8 @@ def handle_messages(message):
     except:
         pass
     
-    # پاسخ به دکمه‌ها و کلمات خاص
+    text = message.text.lower() if message.text else ""
+    
     if any(phrase in text for phrase in ["دلم واست تنگولیده"]):
         bot.reply_to(message, "هر لحظه دلم واست تنگیده مریمم.")
     elif any(phrase in text for phrase in ["دوستت دارم 🤍", "عشقم", "عاشقتم"]):
