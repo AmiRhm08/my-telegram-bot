@@ -159,7 +159,7 @@ def handle_messages(message):
     
     # چک کن آیا مریم منتظر جواب "تو مریمی؟" هست
     if chat_id in maryam_waiting_for_answer:
-        if "آره" in text or "هوم" in text:
+        if "آره" in text or "هوم" or "بله" or "مریم" in text:
             special_message = "پس تو زندگیِ کسی که منو ساخته‌ای، بهم گفته بود که فهمیدم تویی بهت بگم بی‌اندازه عاشقته و دوستت داره. ❤️"
             bot.send_message(chat_id, special_message)
             maryam_waiting_for_answer.remove(chat_id)
