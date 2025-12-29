@@ -214,7 +214,7 @@ def handle_messages(message):
     # دکمه "دلم واست تنگولیده."
     elif "دلم واست تنگولیده" in text:
         romantic_reply = get_next_message(chat_id)
-        bot.reply_to(message, f"{romantic_reply}\n\nدلم برات یه عالمه تنگ شده مریم جونم 😢❤️")
+        bot.reply_to(message, f"{romantic_reply}\n\nدل منم هر لحظه برات تنگولیده نینیم.❤️")
     
     # دکمه "دوستت دارم 🤍"
     elif any(phrase in text for phrase in ["دوستت دارم 🤍", "عشقم", "عاشقتم"]):
