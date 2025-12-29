@@ -98,7 +98,7 @@ def send_romantic_messages(chat_id):
             except:
                 pass
         
-        time.sleep(3600)  # هر ساعت
+        time.sleep(10)  # هر ساعت
 
 @bot.message_handler(commands=['start'])
 def start(message):
