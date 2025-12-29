@@ -205,7 +205,7 @@ def handle_messages(message):
     if any(phrase in text for phrase in ["بوس", "بوسه", "بوس بوسیییی"]):
         try:
             # <<<--- file_id ویس بوس خودت رو اینجا بذار
-            voice_file_id = "AwACAgQAAxkBAAEZwd9pUigjHTi30H-dGJgPzuQHlOMojAACtRoAAk2bkFKfS-ri4Y6g9DYE"  # مثلاً CQACAgQAAxkBAAIB...
+            voice_file_id = "AwACAgQAAxkBAAEZuydpT-3m88pqNvEdOavx_u-gT3MBTAACzxgAAuNVgVJPLxSyV9rHdTYE"  # مثلاً CQACAgQAAxkBAAIB...
             bot.send_voice(chat_id, voice_file_id)
         except:
             bot.reply_to(message, "بوس بهت عزیزدلم.")  # اگر ویس نشد، متن بفرست
