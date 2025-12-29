@@ -98,33 +98,33 @@ def send_romantic_messages(chat_id):
         time.sleep(3600)
 
 def send_romantic_messages(chat_id):
-    """ارسال پیام عاشقانه هر ساعت — برای همیشه"""
-    while True:  # لوپ بی‌نهایت تا وقتی /stop نزنه
+    """ارسال پیام عاشقانه هر ساعت + پیام ویژه روز عشق فقط ساعت ۲۳:۳۱"""
+    while chat_id in active_users:
         current_time = datetime.datetime.now()
         current_date = date.today()
         days_in_love = (current_date - FIXED_START_DATE).days + 1
         
+        # آیا امروز پیام روز عشق فرستاده شده؟
         today_sent = daily_message_sent.get(chat_id, None) == current_date
         
-        # پیام روز عشق فقط ساعت ۲۳:۳۱
-        if current_time.hour == 23 and 30 <= current_time.minute <= 32 and not today_sent:  # کمی حاشیه دادم که مطمئن بشه
+        # فقط بین ۲۳:۳۰ تا ۲۳:۳۲ پیام روز عشق بفرست (مطمئن بشه حتماً بفرسته)
+        if current_time.hour == 23 and 30 <= current_time.minute <= 32 and not today_sent:
             day_message = f"امروز روز <b>{days_in_love}</b> ام ماست نفس من.❤️"
             try:
                 bot.send_message(chat_id, day_message)
-                daily_message_sent[chat_id] = current_date
+                daily_message_sent[chat_id] = current_date  # علامت بزن که امروز فرستاده شد
             except:
                 pass
         
-        # پیام عاشقانه معمولی هر ساعت
-        else:
+        # پیام عاشقانه معمولی هر ساعت (به جز وقتی که پیام روز فرستاده شد)
+        if not (current_time.hour == 23 and 30 <= current_time.minute <= 32):
             message = get_next_message(chat_id)
             try:
                 bot.send_message(chat_id, message)
             except:
                 pass
         
-        # صبر کن ۱ ساعت (۳۶۰۰ ثانیه)
-        time.sleep(10)
+        time.sleep(10)  # هر ساعت چک کنه
 
 @bot.message_handler(commands=['stop'])
 def stop(message):
