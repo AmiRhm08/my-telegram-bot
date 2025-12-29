@@ -91,7 +91,7 @@ def background_sender():
             except:
                 pass
         
-        time.sleep(10)  # هر ۱۰ ثانیه یک پیام
+        time.sleep(3600)  # هر ۱۰ ثانیه یک پیام
 
 # شروع لوپ پس‌زمینه
 import threading
@@ -145,7 +145,7 @@ def stop(message):
     daily_message_sent.pop(chat_id, None)
     maryam_waiting.discard(chat_id)
     
-    bot.reply_to(message, "nدلم برات تنگ می‌شه مریم جونم.\nهر وقت دلت خواست دوباره /start بزن 😭💘")
+    bot.reply_to(message, "دلم برات تنگ می‌شه مریم جونم.\nهر وقت دلت خواست دوباره /start بزن 😭💘")
 
 @bot.message_handler(commands=['msg'])
 def admin_message(message):
