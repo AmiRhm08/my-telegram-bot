@@ -23,13 +23,12 @@ romantic_messages = [
     "مریم، تو فردای منی."
 ]
 
-# امروز ۲۸ دسامبر ۲۰۲۵ = روز ۲۷۰
-FIXED_START_DATE = date(2025, 12, 28) - timedelta(days=269)
+# امروز ۲۹ دسامبر ۲۰۲۵ = روز ۲۷۱
+FIXED_START_DATE = date(2025, 12, 29) - timedelta(days=270)
 
 last_sent_index = {}
 active_users = {}
 daily_message_sent = {}
-maryam_waiting_for_answer = set()  # برای چک کردن اینکه مریم منتظر جواب "تو مریمی؟" هست یا نه
 
 LOVE_KEYBOARD = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
 LOVE_KEYBOARD.add(
@@ -38,8 +37,10 @@ LOVE_KEYBOARD.add(
     KeyboardButton("بوس بوسیییی")
 )
 
-ADMIN_ID = 6120112176
+ADMIN_ID = 6120112176  # آیدی خودت (ادمین)
 MARYAM_CHAT_ID = 2045238581  # آیدی مریم جونم
+
+ALLOWED_USERS = {MARYAM_CHAT_ID, ADMIN_ID}  # فقط این دو نفر دسترسی کامل دارن
 
 def get_next_message(chat_id):
     if len(romantic_messages) <= 1:
@@ -84,18 +85,18 @@ def start(message):
     chat_id = message.chat.id
     user_name = message.from_user.first_name or "کاربر"
     
-    # اگر مریم نباشه — بات خودش /stop کنه و بلاک کنه
-    if chat_id != MARYAM_CHAT_ID:
+    # اگر نه مریم باشه و نه ادمین → بلاک کن
+    if chat_id not in ALLOWED_USERS:
         bot.send_message(chat_id, "این بات واسه‌ی تو نیست مزاحم نشو.")
         try:
             bot.send_message(ADMIN_ID, f"کسی سعی کرد بات رو استارت بزنه و بلاک شد!\nاسم: {user_name}\nchat_id: {chat_id}")
         except:
             pass
-        return  # هیچ ترد یا کیبوردی شروع نشه
+        return
     
-    # فقط برای مریم جونم ادامه بده
+    # برای مریم و ادمین (تو) — دسترسی کامل
     try:
-        bot.send_message(ADMIN_ID, f"مریم جونم /start زد!\nchat_id: {chat_id}")
+        bot.send_message(ADMIN_ID, f"کاربر مجاز /start زد!\nاسم: {user_name}\nchat_id: {chat_id}")
     except:
         pass
     
@@ -120,6 +121,11 @@ def start(message):
 @bot.message_handler(commands=['stop'])
 def stop(message):
     chat_id = message.chat.id
+    
+    if chat_id not in ALLOWED_USERS:
+        bot.reply_to(message, "این بات واسه‌ی تو نیست مزاحم نشو.")
+        return
+    
     if chat_id in active_users:
         active_users[chat_id].cancel()
         del active_users[chat_id]
@@ -127,8 +133,6 @@ def stop(message):
             del last_sent_index[chat_id]
         if chat_id in daily_message_sent:
             del daily_message_sent[chat_id]
-        if chat_id in maryam_waiting_for_answer:
-            maryam_waiting_for_answer.remove(chat_id)
         bot.reply_to(message, "nدلم برات تنگ می‌شه مریم جونم.\nهر وقت دلت خواست دوباره /start بزن 😭💘", reply_markup=telebot.types.ReplyKeyboardRemove())
     else:
         bot.reply_to(message, "باید اول /start رو بزنی کوشولو")
@@ -147,6 +151,11 @@ def admin_message(message):
         target_chat_id = int(parts[1])
         text = parts[2]
         
+        # فقط به کاربران مجاز (مریم یا خودت) پیام بفرست
+        if target_chat_id not in ALLOWED_USERS:
+            bot.reply_to(message, "فقط می‌تونی به مریم جونم یا خودت پیام بدی!")
+            return
+        
         bot.send_message(target_chat_id, text + "\n\n— از امیرعلی ❤️")
         bot.reply_to(message, f"پیام با موفقیت فرستاده شد به chat_id: {target_chat_id}\n\n{text}")
     
@@ -159,12 +168,10 @@ def admin_message(message):
 def handle_messages(message):
     chat_id = message.chat.id
     
-    # اگر از مریم نباشه، کامل نادیده بگیر و بلاک کن
-    if chat_id != MARYAM_CHAT_ID:
+    if chat_id not in ALLOWED_USERS:
         bot.send_message(chat_id, "این بات واسه‌ی تو نیست مزاحم نشو.")
         return
     
-    # بقیه کد پاسخ به مریم (همون قبلی)
     username = message.from_user.username or "بدون یوزرنیم"
     first_name = message.from_user.first_name or "نامشخص"
     display_name = f"@{username}" if message.from_user.username else first_name
@@ -186,12 +193,9 @@ def handle_messages(message):
     else:
         bot.reply_to(message, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
 
-print("بات عاشقانه با سوال ویژه برای مریم جونم شروع شد!")
+print("بات خصوصی — فقط برای مریم جونم و ادمین — شروع شد!")
 
 bot.infinity_polling()
-
-
-
 
 
 
