@@ -97,43 +97,34 @@ def send_romantic_messages(chat_id):
         
         time.sleep(3600)
 
-@bot.message_handler(commands=['start'])
-def start(message):
-    chat_id = message.chat.id
-    user_name = message.from_user.first_name or "کاربر"
-    
-    # اگر نه مریم باشه و نه ادمین → بلاک کن
-    if chat_id not in ALLOWED_USERS:
-        bot.send_message(chat_id, "این بات واسه‌ی تو نیست مزاحم نشو.")
-        try:
-            bot.send_message(ADMIN_ID, f"کسی سعی کرد بات رو استارت بزنه و بلاک شد!\nاسم: {user_name}\nchat_id: {chat_id}")
-        except:
-            pass
-        return
-    
-    # برای مریم و ادمین (تو) — دسترسی کامل
-    try:
-        bot.send_message(ADMIN_ID, f"کاربر مجاز /start زد!\nاسم: {user_name}\nchat_id: {chat_id}")
-    except:
-        pass
-    
-    welcome_text = (
-        "<b>شلام همسر عزیزتر از جونم، این برای توعه.💗</b>\n\n"
-        "این بات واست پیام میفرسته تا ببینی امیرعلی همیشه حواسش بهت هست واقعنی حتی تو خوابت.\n"
-        "هر وقت خواستی تموم بچه، /stop رو بزن 💜"
-    )
-    bot.send_message(chat_id, welcome_text, reply_markup=LOVE_KEYBOARD)
-    
-    first_message = get_next_message(chat_id)
-    bot.send_message(chat_id, first_message)
-    
-    if chat_id in active_users:
-        active_users[chat_id].cancel()
-    
-    thread = threading.Timer(10, send_romantic_messages, args=[chat_id])
-    thread.daemon = True
-    thread.start()
-    active_users[chat_id] = thread
+def send_romantic_messages(chat_id):
+    """ارسال پیام عاشقانه هر ساعت — برای همیشه"""
+    while True:  # لوپ بی‌نهایت تا وقتی /stop نزنه
+        current_time = datetime.datetime.now()
+        current_date = date.today()
+        days_in_love = (current_date - FIXED_START_DATE).days + 1
+        
+        today_sent = daily_message_sent.get(chat_id, None) == current_date
+        
+        # پیام روز عشق فقط ساعت ۲۳:۳۱
+        if current_time.hour == 23 and 30 <= current_time.minute <= 32 and not today_sent:  # کمی حاشیه دادم که مطمئن بشه
+            day_message = f"امروز روز <b>{days_in_love}</b> ام ماست نفس من.❤️"
+            try:
+                bot.send_message(chat_id, day_message)
+                daily_message_sent[chat_id] = current_date
+            except:
+                pass
+        
+        # پیام عاشقانه معمولی هر ساعت
+        else:
+            message = get_next_message(chat_id)
+            try:
+                bot.send_message(chat_id, message)
+            except:
+                pass
+        
+        # صبر کن ۱ ساعت (۳۶۰۰ ثانیه)
+        time.sleep(10)
 
 @bot.message_handler(commands=['stop'])
 def stop(message):
