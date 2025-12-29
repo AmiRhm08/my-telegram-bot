@@ -99,7 +99,7 @@ def background_sender():
             except:
                 pass
         
-        time.sleep(10)  # هر ساعت یک پیام
+        time.sleep(3600)  # هر ساعت یک پیام
 
 # شروع لوپ پس‌زمینه
 threading.Thread(target=background_sender, daemon=True).start()
