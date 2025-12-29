@@ -89,15 +89,15 @@ def send_romantic_messages(chat_id):
             except:
                 pass
         
-        # پیام عاشقانه معمولی هر ۱۰ ثانیه
-        message = get_next_message(chat_id)
-        try:
-            bot.send_message(chat_id, message)
-        except:
-            pass
+        # پیام عاشقانه معمولی هر ساعت (به جز زمان پیام روز)
+        if not (current_time.hour == 23 and 30 <= current_time.minute <= 32):
+            message = get_next_message(chat_id)
+            try:
+                bot.send_message(chat_id, message)
+            except:
+                pass
         
-        time.sleep(10)  # هر ۱۰ ثانیه یک پیام عاشقانه
-
+        time.sleep(10)  # هر ۱۰ ثانیه
 @bot.message_handler(commands=['start'])
 def start(message):
     chat_id = message.chat.id
