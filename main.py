@@ -89,7 +89,7 @@ def send_romantic_messages(chat_id):
             except:
                 pass
         
-        # پیام عاشقانه معمولی — همیشه هر ۱۰ ثانیه
+        # پیام عاشقانه معمولی — همیشه هر ۱۰ ثانیه (بدون هیچ شرط بلاک)
         message = get_next_message(chat_id)
         try:
             bot.send_message(chat_id, message)
