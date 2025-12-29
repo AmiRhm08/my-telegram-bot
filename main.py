@@ -45,6 +45,7 @@ FIXED_START_DATE = date(2025, 12, 29) - timedelta(days=270)
 last_sent_index = {}
 active_users = {}
 daily_message_sent = {}
+maryam_waiting = set()
 
 LOVE_KEYBOARD = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
 LOVE_KEYBOARD.add(
@@ -80,7 +81,7 @@ def send_romantic_messages(chat_id):
         
         today_sent = daily_message_sent.get(chat_id, None) == current_date
         
-        # پیام ویژه روز عشق فقط دقیقاً ساعت ۲۳:۳۱
+        # پیام ویژه روز عشق فقط ساعت ۲۳:۳۱
         if current_time.hour == 23 and current_time.minute == 31 and not today_sent:
             day_message = f"امروز روز <b>{days_in_love}</b> ام ماست نفس من.❤️"
             try:
@@ -89,14 +90,15 @@ def send_romantic_messages(chat_id):
             except:
                 pass
         
-        # پیام عاشقانه معمولی — همیشه هر ۱۰ ثانیه (بدون هیچ شرط بلاک)
+        # پیام عاشقانه معمولی هر ۱۰ ثانیه
         message = get_next_message(chat_id)
         try:
             bot.send_message(chat_id, message)
         except:
             pass
         
-        time.sleep(10)  # هر ۱۰ ثانیه یک پیام عاشقانه
+        time.sleep(10)
+
 @bot.message_handler(commands=['start'])
 def start(message):
     chat_id = message.chat.id
@@ -115,6 +117,13 @@ def start(message):
     except:
         pass
     
+    # اگر مریم باشه — سوال ویژه
+    if chat_id == MARYAM_CHAT_ID:
+        bot.send_message(chat_id, "آیا تو مریمی؟")
+        maryam_waiting.add(chat_id)
+        return
+    
+    # برای ادمین (تو) — مستقیم ادامه
     welcome_text = (
         "<b>شلام همسر عزیزتر از جونم، این برای توعه.💗</b>\n\n"
         "این بات واست پیام میفرسته تا ببینی امیرعلی همیشه حواسش بهت هست واقعنی حتی تو خوابت.\n"
@@ -148,6 +157,8 @@ def stop(message):
             del last_sent_index[chat_id]
         if chat_id in daily_message_sent:
             del daily_message_sent[chat_id]
+        if chat_id in maryam_waiting:
+            maryam_waiting.remove(chat_id)
         bot.reply_to(message, "nدلم برات تنگ می‌شه مریم جونم.\nهر وقت دلت خواست دوباره /start بزن 😭💘", reply_markup=telebot.types.ReplyKeyboardRemove())
     else:
         bot.reply_to(message, "باید اول /start رو بزنی کوشولو")
@@ -186,6 +197,33 @@ def handle_messages(message):
         bot.send_message(chat_id, "این بات واسه‌ی تو نیست مزاحم نشو.")
         return
     
+    # چک جواب مریم به سوال "آیا تو مریمی؟"
+    if chat_id in maryam_waiting:
+        special_message = "از آشنایی باهات خوشبختم، سازنده‌م خیلی تعریفتو کرده پیشم و گفته که تو همه‌چیزشی، خیلی عجیب عاشقته سازنده‌م، بهت حسودی میکنم. بهم گفته بهت بگم این باتو ساخته تا یه بخش کوچیکی از علاقه‌ش بهتو ببینی."
+        bot.send_message(chat_id, special_message)
+        
+        welcome_text = (
+            "<b>شلام همسر عزیزتر از جونم، این برای توعه.💗</b>\n\n"
+            "این بات واست پیام میفرسته تا ببینی امیرعلی همیشه حواسش بهت هست واقعنی حتی تو خوابت.\n"
+            "هر وقت خواستی تموم بچه، /stop رو بزن 💜"
+        )
+        bot.send_message(chat_id, welcome_text, reply_markup=LOVE_KEYBOARD)
+        
+        time.sleep(3)
+        first_message = get_next_message(chat_id)
+        bot.send_message(chat_id, first_message)
+        
+        if chat_id in active_users:
+            active_users[chat_id].cancel()
+        
+        thread = threading.Thread(target=send_romantic_messages, args=[chat_id])
+        thread.daemon = True
+        thread.start()
+        active_users[chat_id] = thread
+        
+        maryam_waiting.remove(chat_id)
+        return
+    
     username = message.from_user.username or "بدون یوزرنیم"
     first_name = message.from_user.first_name or "نامشخص"
     display_name = f"@{username}" if message.from_user.username else first_name
@@ -215,6 +253,6 @@ def handle_messages(message):
     else:
         bot.reply_to(message, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
 
-print("بات عاشقانه — پیام عادی هر ۱۰ ثانیه + روز عشق ساعت ۲۳:۳۱ — شروع شد!")
+print("بات عاشقانه — دسترسی کامل برای ادمین و مریم — شروع شد!")
 
 bot.infinity_polling()
