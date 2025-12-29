@@ -54,10 +54,10 @@ LOVE_KEYBOARD.add(
     KeyboardButton("بوس بوسیییی")
 )
 
-ADMIN_ID = 6120112176  # آیدی خودت (ادمین)
-MARYAM_CHAT_ID = 2045238581  # آیدی مریم جونم
+ADMIN_ID = 6120112176
+MARYAM_CHAT_ID = 2045238581
 
-ALLOWED_USERS = {MARYAM_CHAT_ID, ADMIN_ID}  # فقط این دو نفر دسترسی کامل دارن
+ALLOWED_USERS = {MARYAM_CHAT_ID, ADMIN_ID}
 
 def get_next_message(chat_id):
     if len(romantic_messages) <= 1:
@@ -81,42 +81,16 @@ def send_romantic_messages(chat_id):
         
         today_sent = daily_message_sent.get(chat_id, None) == current_date
         
-        if current_time.hour == 23 and current_time.minute == 31 and not today_sent:
-            day_message = f"امروز روز <b>{days_in_love}</b> ام ماست نفس من.❤️\nشب بخیر عشقم، خوابای قشنگ ببینی 😘"
+        # پیام ویژه روز عشق فقط بین ۲۳:۳۰ تا ۲۳:۳۲
+        if current_time.hour == 23 and 30 <= current_time.minute <= 32 and not today_sent:
+            day_message = f"امروز روز <b>{days_in_love}</b> ام ماست نفس من.❤️"
             try:
                 bot.send_message(chat_id, day_message)
                 daily_message_sent[chat_id] = current_date
             except:
                 pass
-        else:
-            message = get_next_message(chat_id)
-            try:
-                bot.send_message(chat_id, message)
-            except:
-                pass
         
-        time.sleep(3600)
-
-def send_romantic_messages(chat_id):
-    """ارسال پیام عاشقانه هر ساعت + پیام ویژه روز عشق فقط ساعت ۲۳:۳۱"""
-    while chat_id in active_users:
-        current_time = datetime.datetime.now()
-        current_date = date.today()
-        days_in_love = (current_date - FIXED_START_DATE).days + 1
-        
-        # آیا امروز پیام روز عشق فرستاده شده؟
-        today_sent = daily_message_sent.get(chat_id, None) == current_date
-        
-        # فقط بین ۲۳:۳۰ تا ۲۳:۳۲ پیام روز عشق بفرست (مطمئن بشه حتماً بفرسته)
-        if current_time.hour == 23 and 30 <= current_time.minute <= 32 and not today_sent:
-            day_message = f"امروز روز <b>{days_in_love}</b> ام ماست نفس من.❤️"
-            try:
-                bot.send_message(chat_id, day_message)
-                daily_message_sent[chat_id] = current_date  # علامت بزن که امروز فرستاده شد
-            except:
-                pass
-        
-        # پیام عاشقانه معمولی هر ساعت (به جز وقتی که پیام روز فرستاده شد)
+        # پیام عاشقانه معمولی هر ساعت (به جز زمان پیام روز)
         if not (current_time.hour == 23 and 30 <= current_time.minute <= 32):
             message = get_next_message(chat_id)
             try:
@@ -124,7 +98,43 @@ def send_romantic_messages(chat_id):
             except:
                 pass
         
-        time.sleep(10)  # هر ساعت چک کنه
+        time.sleep(3600)  # هر ساعت
+
+@bot.message_handler(commands=['start'])
+def start(message):
+    chat_id = message.chat.id
+    user_name = message.from_user.first_name or "کاربر"
+    
+    if chat_id not in ALLOWED_USERS:
+        bot.send_message(chat_id, "این بات واسه‌ی تو نیست مزاحم نشو.")
+        try:
+            bot.send_message(ADMIN_ID, f"کسی سعی کرد بات رو استارت بزنه و بلاک شد!\nاسم: {user_name}\nchat_id: {chat_id}")
+        except:
+            pass
+        return
+    
+    try:
+        bot.send_message(ADMIN_ID, f"کاربر مجاز /start زد!\nاسم: {user_name}\nchat_id: {chat_id}")
+    except:
+        pass
+    
+    welcome_text = (
+        "<b>شلام همسر عزیزتر از جونم، این برای توعه.💗</b>\n\n"
+        "این بات واست پیام میفرسته تا ببینی امیرعلی همیشه حواسش بهت هست واقعنی حتی تو خوابت.\n"
+        "هر وقت خواستی تموم بچه، /stop رو بزن 💜"
+    )
+    bot.send_message(chat_id, welcome_text, reply_markup=LOVE_KEYBOARD)
+    
+    first_message = get_next_message(chat_id)
+    bot.send_message(chat_id, first_message)
+    
+    if chat_id in active_users:
+        active_users[chat_id].cancel()
+    
+    thread = threading.Thread(target=send_romantic_messages, args=[chat_id])
+    thread.daemon = True
+    thread.start()
+    active_users[chat_id] = thread
 
 @bot.message_handler(commands=['stop'])
 def stop(message):
@@ -159,7 +169,6 @@ def admin_message(message):
         target_chat_id = int(parts[1])
         text = parts[2]
         
-        # فقط به کاربران مجاز (مریم یا خودت) پیام بفرست
         if target_chat_id not in ALLOWED_USERS:
             bot.reply_to(message, "فقط می‌تونی به مریم جونم یا خودت پیام بدی!")
             return
@@ -192,30 +201,24 @@ def handle_messages(message):
     
     text = message.text.lower() if message.text else ""
     
-    # دکمه یا متن "بوس بوسیییی" یا "بوس" → ویس بوس بفرست
     if any(phrase in text for phrase in ["بوس", "بوسه", "بوس بوسیییی"]):
         try:
-            # <<<--- file_id ویس بوس خودت رو اینجا بذار
-            voice_file_id = "AwACAgQAAxkBAAEZuydpT-3m88pqNvEdOavx_u-gT3MBTAACzxgAAuNVgVJPLxSyV9rHdTYE"  # مثلاً CQACAgQAAxkBAAIB...
+            voice_file_id = "AwACAgQAAxkBAAEZuydpT-3m88pqNvEdOavx_u-gT3MBTAACzxgAAuNVgVJPLxSyV9rHdTYE"
             bot.send_voice(chat_id, voice_file_id)
         except:
-            bot.reply_to(message, "بوس بهت عزیزدلم.")  # اگر ویس نشد، متن بفرست
+            bot.reply_to(message, "بوس بهت عزیزدلم.")
     
-    # دکمه "دلم واست تنگولیده."
     elif "دلم واست تنگولیده" in text:
         romantic_reply = get_next_message(chat_id)
         bot.reply_to(message, f"{romantic_reply}\n\nدل منم هر لحظه برات تنگولیده نینیم.❤️")
     
-    # دکمه "دوستت دارم 🤍"
     elif any(phrase in text for phrase in ["دوستت دارم 🤍", "عشقم", "عاشقتم"]):
         bot.reply_to(message, "همه چیز منییی؛ عاچقتم و دوستت میدالم.")
     
-    # پیام پیش‌فرض
     else:
         bot.reply_to(message, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
+
 print("بات خصوصی — فقط برای مریم جونم و ادمین — شروع شد!")
 
 bot.infinity_polling()
-
-
 
