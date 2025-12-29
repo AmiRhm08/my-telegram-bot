@@ -1,6 +1,8 @@
 import os
 os.system("pip install pyTelegramBotAPI")
 import telebot
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton
+import threading
 import time
 import random
 from datetime import date, timedelta
@@ -41,15 +43,21 @@ romantic_messages = [
 FIXED_START_DATE = date(2025, 12, 29) - timedelta(days=270)
 
 last_sent_index = {}
-active_users = set()  # فقط برای چک کردن کی فعاله
+active_users = set()
 daily_message_sent = {}
+maryam_waiting = set()
+
+LOVE_KEYBOARD = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+LOVE_KEYBOARD.add(
+    KeyboardButton("دلم واست تنگولیده."),
+    KeyboardButton("دوستت دارم 🤍"),
+    KeyboardButton("بوس بوسیییی")
+)
 
 ADMIN_ID = 6120112176
 MARYAM_CHAT_ID = 2045238581
 
 ALLOWED_USERS = {MARYAM_CHAT_ID, ADMIN_ID}
-
-maryam_waiting = set()
 
 def get_next_message(chat_id):
     if len(romantic_messages) <= 1:
@@ -65,7 +73,7 @@ def get_next_message(chat_id):
     last_sent_index[chat_id] = new_index
     return romantic_messages[new_index]
 
-# لوپ اصلی ارسال پیام — بدون ترد
+# لوپ پس‌زمینه برای ارسال پیام‌ها
 def background_sender():
     while True:
         current_time = datetime.datetime.now()
@@ -84,17 +92,16 @@ def background_sender():
                 except:
                     pass
             
-            # پیام عاشقانه معمولی هر ۱۰ ثانیه برای همه کاربران مجاز
+            # پیام عاشقانه معمولی هر ساعت برای تو و مریم
             message = get_next_message(chat_id)
             try:
                 bot.send_message(chat_id, message)
             except:
                 pass
         
-        time.sleep(3600)  # هر ۱۰ ثانیه یک پیام
+        time.sleep(3600)  # هر ساعت یک پیام
 
 # شروع لوپ پس‌زمینه
-import threading
 threading.Thread(target=background_sender, daemon=True).start()
 
 @bot.message_handler(commands=['start'])
@@ -125,7 +132,7 @@ def start(message):
         "این بات واست پیام میفرسته تا ببینی امیرعلی همیشه حواسش بهت هست واقعنی حتی تو خوابت.\n"
         "هر وقت خواستی تموم بچه، /stop رو بزن 💜"
     )
-    bot.send_message(chat_id, welcome_text)
+    bot.send_message(chat_id, welcome_text, reply_markup=LOVE_KEYBOARD)
     
     first_message = get_next_message(chat_id)
     bot.send_message(chat_id, first_message)
@@ -145,7 +152,7 @@ def stop(message):
     daily_message_sent.pop(chat_id, None)
     maryam_waiting.discard(chat_id)
     
-    bot.reply_to(message, "دلم برات تنگ می‌شه مریم جونم.\nهر وقت دلت خواست دوباره /start بزن 😭💘")
+    bot.reply_to(message, "دلم برات تنگ می‌شه مریم جونم.\nهر وقت دلت خواست دوباره /start بزن 😭💘", reply_markup=telebot.types.ReplyKeyboardRemove())
 
 @bot.message_handler(commands=['msg'])
 def admin_message(message):
@@ -181,7 +188,6 @@ def handle_messages(message):
         bot.send_message(chat_id, "این بات واسه‌ی تو نیست مزاحم نشو.")
         return
     
-    # چک جواب مریم به سوال "آیا تو مریمی؟"
     if chat_id in maryam_waiting:
         special_message = "از آشنایی باهات خوشبختم، سازنده‌م خیلی تعریفتو کرده پیشم و گفته که تو همه‌چیزشی، خیلی عجیب عاشقته سازنده‌م، بهت حسودی میکنم. بهم گفته بهت بگم این باتو ساخته تا یه بخش کوچیکی از علاقه‌ش بهتو ببینی."
         bot.send_message(chat_id, special_message)
@@ -191,7 +197,7 @@ def handle_messages(message):
             "این بات واست پیام میفرسته تا ببینی امیرعلی همیشه حواسش بهت هست واقعنی حتی تو خوابت.\n"
             "هر وقت خواستی تموم بچه، /stop رو بزن 💜"
         )
-        bot.send_message(chat_id, welcome_text)
+        bot.send_message(chat_id, welcome_text, reply_markup=LOVE_KEYBOARD)
         
         time.sleep(3)
         first_message = get_next_message(chat_id)
@@ -230,6 +236,6 @@ def handle_messages(message):
     else:
         bot.reply_to(message, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
 
-print("بات عاشقانه — بدون ترد، پایدار و همیشه فعال — شروع شد!")
+print("بات عاشقانه — هر ساعت یک پیام + روز عشق ساعت ۲۳:۳۱ — شروع شد!")
 
 bot.infinity_polling()
