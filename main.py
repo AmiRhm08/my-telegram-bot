@@ -37,7 +37,6 @@ romantic_messages = [
     "دوستت دارم تنها ماهِ آسمونِ قلبم:)",
     "باهم این سختیا رو تحمل میکنیم عزیزم، دنیا بغل های زیادی رو بهمون بدهکاره.",
     "میقام تورو بگیلم."
-    
 ]
 
 # امروز ۲۹ دسامبر ۲۰۲۵ = روز ۲۷۱
@@ -81,8 +80,8 @@ def send_romantic_messages(chat_id):
         
         today_sent = daily_message_sent.get(chat_id, None) == current_date
         
-        # پیام ویژه روز عشق فقط بین ۲۳:۳۰ تا ۲۳:۳۲
-        if current_time.hour == 23 and 30 <= current_time.minute <= 32 and not today_sent:
+        # پیام ویژه روز عشق فقط دقیقاً ساعت ۲۳:۳۱
+        if current_time.hour == 23 and current_time.minute == 31 and not today_sent:
             day_message = f"امروز روز <b>{days_in_love}</b> ام ماست نفس من.❤️"
             try:
                 bot.send_message(chat_id, day_message)
@@ -90,15 +89,14 @@ def send_romantic_messages(chat_id):
             except:
                 pass
         
-        # پیام عاشقانه معمولی هر ساعت (به جز زمان پیام روز)
-        if not (current_time.hour == 23 and 30 <= current_time.minute <= 32):
-            message = get_next_message(chat_id)
-            try:
-                bot.send_message(chat_id, message)
-            except:
-                pass
+        # پیام عاشقانه معمولی هر ۱۰ ثانیه
+        message = get_next_message(chat_id)
+        try:
+            bot.send_message(chat_id, message)
+        except:
+            pass
         
-        time.sleep(10)  # هر ساعت
+        time.sleep(10)  # هر ۱۰ ثانیه یک پیام عاشقانه
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -218,7 +216,6 @@ def handle_messages(message):
     else:
         bot.reply_to(message, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
 
-print("بات خصوصی — فقط برای مریم جونم و ادمین — شروع شد!")
+print("بات عاشقانه — پیام عادی هر ۱۰ ثانیه + روز عشق ساعت ۲۳:۳۱ — شروع شد!")
 
 bot.infinity_polling()
-
