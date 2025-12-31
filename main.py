@@ -36,26 +36,18 @@ romantic_messages = [
     "تورو از همه‌ی همه‌ی دنیا بیشتر دوستت دالم نفس بابایی.",
     "دوستت دارم تنها ماهِ آسمونِ قلبم:)",
     "باهم این سختیا رو تحمل میکنیم عزیزم، دنیا بغل های زیادی رو بهمون بدهکاره.",
-    "میقام تورو بگیلم.",
-    "به تو فکر میکنم.",
-    "برایم از چیزهایی بگو که فکر میکنی برای هیچکس مهم نیست.",
-    "تا ابد و یک روز عاشقتم.",
-    "تا ابد و یک روز عاشقتم.",
-    "همه‌‍شیز بابایی‌ای.",
-    "ابد و ابدی منی.",
-    "if you need me, I'm here. And if you don't need me, I'm still here.",
-    "تو ماه تاریک ترین شبام، و خورشید روشن‌ترین روزامی.",
-    "واقعا خوشمزه‌ای دختر جون."
+    "میقام تورو بگیلم."
 ]
 
-# امروز ۲۹ دسامبر ۲۰۲۵ = روز ۲۷۱
-FIXED_START_DATE = date(2025, 12, 29) - timedelta(days=270)
+# امروز ۳۱ دسامبر ۲۰۲۵ = روز ۲۷۳
+FIXED_START_DATE = date(2025, 12, 31) - timedelta(days=272)
 
 last_sent_index = {}
 active_users = set()
 daily_message_sent = {}
 maryam_waiting = set()
 
+# کیبورد — اضافه شد
 LOVE_KEYBOARD = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
 LOVE_KEYBOARD.add(
     KeyboardButton("دلم واست تنگولیده."),
@@ -82,7 +74,7 @@ def get_next_message(chat_id):
     last_sent_index[chat_id] = new_index
     return romantic_messages[new_index]
 
-# لوپ پس‌زمینه برای ارسال پیام‌ها
+# لوپ ارسال پیام — فقط یک بار تعریف شد
 def background_sender():
     while True:
         current_time = datetime.datetime.now()
@@ -92,8 +84,8 @@ def background_sender():
         for chat_id in list(active_users):
             today_sent = daily_message_sent.get(chat_id, None) == current_date
             
-            # پیام ویژه روز عشق فقط برای مریم و فقط ساعت ۲۳:۳۱
-            if chat_id == MARYAM_CHAT_ID and current_time.hour == 23 and current_time.minute == 31 and not today_sent:
+            # پیام ویژه روز عشق فقط برای مریم و فقط بین ۲۳:۳۰ تا ۲۳:۳۲
+            if chat_id == MARYAM_CHAT_ID and current_time.hour == 23 and 30 <= current_time.minute <= 32 and not today_sent:
                 day_message = f"امروز روز <b>{days_in_love}</b> ام ماست نفس من.❤️"
                 try:
                     bot.send_message(chat_id, day_message)
@@ -161,7 +153,7 @@ def stop(message):
     daily_message_sent.pop(chat_id, None)
     maryam_waiting.discard(chat_id)
     
-    bot.reply_to(message, "دلم برات تنگ می‌شه مریم جونم.\nهر وقت دلت خواست دوباره /start بزن 😭💘", reply_markup=telebot.types.ReplyKeyboardRemove())
+    bot.reply_to(message, "دلم برات تنگ می‌شه مریم جونم.\nهر وقت دلت خواست دوباره /start بزن 😭💘")
 
 @bot.message_handler(commands=['msg'])
 def admin_message(message):
@@ -230,7 +222,7 @@ def handle_messages(message):
     
     if any(phrase in text for phrase in ["بوس", "بوسه", "بوس بوسیییی"]):
         try:
-            voice_file_id = "AwACAgQAAxkBAAEZwd9pUigjHTi30H-dGJgPzuQHlOMojAACtRoAAk2bkFKfS-ri4Y6g9DYE"
+            voice_file_id = "AwACAgQAAxkBAAEZzV1pVLm3tq9dtXk2ERhBcGhqixNm5QACbBwAAkhGgVKMt1Rh1cUpeDgE"
             bot.send_voice(chat_id, voice_file_id)
         except:
             bot.reply_to(message, "بوس بهت عزیزدلم.")
