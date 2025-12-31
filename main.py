@@ -48,7 +48,6 @@ active_users = set()
 daily_message_sent = {}
 maryam_waiting = set()
 
-# کیبورد — اضافه شد
 LOVE_KEYBOARD = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
 LOVE_KEYBOARD.add(
     KeyboardButton("دلم واست تنگولیده."),
@@ -75,33 +74,37 @@ def get_next_message(chat_id):
     last_sent_index[chat_id] = new_index
     return romantic_messages[new_index]
 
-# لوپ ارسال پیام — فقط یک بار تعریف شد
+# لوپ ارسال پیام — با try/except برای جلوگیری از کرش
 def background_sender():
     while True:
-        current_time = datetime.datetime.now()
-        current_date = date.today()
-        days_in_love = (current_date - FIXED_START_DATE).days + 1
-        
-        for chat_id in list(active_users):
-            today_sent = daily_message_sent.get(chat_id, None) == current_date
+        try:
+            current_time = datetime.datetime.now()
+            current_date = date.today()
+            days_in_love = (current_date - FIXED_START_DATE).days + 1
             
-            # پیام ویژه روز عشق فقط برای مریم و فقط بین ۲۳:۳۰ تا ۲۳:۳۲
-            if chat_id == MARYAM_CHAT_ID and current_time.hour == 23 and 30 <= current_time.minute <= 32 and not today_sent:
-                day_message = f"امروز روز <b>{days_in_love}</b> ام ماست نفس من.❤️"
+            for chat_id in list(active_users):
                 try:
-                    bot.send_message(chat_id, day_message)
-                    daily_message_sent[chat_id] = current_date
-                except:
-                    pass
+                    today_sent = daily_message_sent.get(chat_id, None) == current_date
+                    
+                    # پیام ویژه روز عشق فقط برای مریم
+                    if chat_id == MARYAM_CHAT_ID and current_time.hour == 23 and 30 <= current_time.minute <= 32 and not today_sent:
+                        day_message = f"امروز روز <b>{days_in_love}</b> ام ماست نفس من.❤️"
+                        bot.send_message(chat_id, day_message)
+                        daily_message_sent[chat_id] = current_date
+                    
+                    # پیام عاشقانه معمولی هر ساعت
+                    message = get_next_message(chat_id)
+                    bot.send_message(chat_id, message)
+                
+                except Exception as e:
+                    print(f"خطا در ارسال به {chat_id}: {e}")
+                    continue  # ادامه بده حتی اگر برای یکی مشکل پیش اومد
             
-            # پیام عاشقانه معمولی هر ساعت برای تو و مریم
-            message = get_next_message(chat_id)
-            try:
-                bot.send_message(chat_id, message)
-            except:
-                pass
+            time.sleep(3600)  # هر ساعت
         
-        time.sleep(3600)  # هر ساعت یک پیام
+        except Exception as e:
+            print(f"خطا در لوپ اصلی: {e}")
+            time.sleep(60)  # اگر خطای بزرگ پیش اومد، ۱ دقیقه صبر کن و ادامه بده
 
 # شروع لوپ پس‌زمینه
 threading.Thread(target=background_sender, daemon=True).start()
@@ -238,6 +241,6 @@ def handle_messages(message):
     else:
         bot.reply_to(message, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
 
-print("بات عاشقانه — هر ساعت یک پیام + روز عشق ساعت ۲۳:۳۱ — شروع شد!")
+print("بات عاشقانه — بهینه‌شده و پایدار — شروع شد!")
 
-bot.infinity_polling()
+bot.infinity_polling(non_stop=True)
