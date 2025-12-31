@@ -14,7 +14,7 @@ from openai import OpenAI
 
 TOKEN = "8206760539:AAHS7iceJT5f2GjNgXU-MiOYat7cyxeBPuU"
 
-openai.api_key = "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"  # اینجا کلید خودت رو بذار
+openai.api_key = "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"  # اینجا کلید خودت رو بذار
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
@@ -246,3 +246,4 @@ def handle_messages(message):
 print("بات عاشقانه با هوش مصنوعی ChatGPT — شروع شد!")
 
 bot.infinity_polling(interval=3)
+
