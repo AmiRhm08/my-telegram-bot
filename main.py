@@ -222,7 +222,7 @@ def handle_messages(message):
     
     if any(phrase in text for phrase in ["بوس", "بوسه", "بوس بوسیییی"]):
         try:
-            voice_file_id = "AwACAgQAAxkBAAEZzV1pVLm3tq9dtXk2ERhBcGhqixNm5QACbBwAAkhGgVKMt1Rh1cUpeDgE"
+            voice_file_id = "AwACAgQAAxkBAAEZwd9pUigjHTi30H-dGJgPzuQHlOMojAACtRoAAk2bkFKfS-ri4Y6g9DYE"
             bot.send_voice(chat_id, voice_file_id)
         except:
             bot.reply_to(message, "بوس بهت عزیزدلم.")
