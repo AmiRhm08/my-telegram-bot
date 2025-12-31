@@ -1,20 +1,14 @@
 import os
 os.system("pip install pyTelegramBotAPI")
 os.system("pip install --upgrade pip")
-os.system("pip install openai")
-os.system("pip install datetime")
 import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 import threading
 import time
 import random
 import datetime
-import openai
-from openai import OpenAI
 
 TOKEN = "8206760539:AAHS7iceJT5f2GjNgXU-MiOYat7cyxeBPuU"
-
-openai.api_key = "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"  # اینجا کلید خودت رو بذار
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
@@ -75,27 +69,7 @@ def get_next_message(chat_id):
     last_sent_index[chat_id] = new_index
     return romantic_messages[new_index]
 
-# تابع هوش مصنوعی ChatGPT
-
-# کلید API OpenAI (همون sk-proj-... که داری — درست هست!)
-client = OpenAI(api_key="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")  # کلید کامل خودت رو بذار
-
-def get_chatgpt_response(user_message, user_name="مریم جونم"):
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "تو امیرعلی هستی، عاشق دیوانه‌وار مریم جونم. خیلی رمانتیک، مهربون، عاشقانه و با احساس جواب بده. فقط جواب بده، توضیح اضافه نده."},
-                {"role": "user", "content": f"{user_name}: {user_message}"}
-            ],
-            temperature=0.9,
-            max_tokens=150
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        print(f"خطا در ChatGPT: {e}")
-        return "دوستت دارم مریم جونم، همیشه پیشتم ❤️"
-# لوپ ارسال پیام هر ساعت
+# لوپ ارسال پیام هر ساعت — پایدار و ضدکرش
 def background_sender():
     while True:
         try:
@@ -105,11 +79,13 @@ def background_sender():
                     bot.send_message(chat_id, message)
                 except Exception as e:
                     print(f"خطا در ارسال به {chat_id}: {e}")
+                    continue
             
-            time.sleep(3600)
+            time.sleep(3600)  # هر ساعت یک پیام
+        
         except Exception as e:
             print(f"خطا در لوپ اصلی: {e}")
-            time.sleep(60)
+            time.sleep(60)  # صبر و ادامه
 
 threading.Thread(target=background_sender, daemon=True).start()
 
@@ -215,7 +191,7 @@ def handle_messages(message):
         maryam_waiting.remove(chat_id)
         return
     
-    # فوروارد پیام به ادمین — با یوزرنیم
+    # فوروارد پیام به ادمین — فقط یوزرنیم یا اسم + پیام + خط فاصله
     try:
         content = message.text or "None"
         if message.from_user.username:
@@ -230,22 +206,23 @@ def handle_messages(message):
     
     text = message.text.lower() if message.text else ""
     
-    # ویس بوس — اولویت داره
     if any(phrase in text for phrase in ["بوس", "بوسه", "بوس بوسیییی"]):
         try:
             voice_file_id = "AwACAgQAAxkBAAEZzXVpVMMB1XPD8Kmc-jxLGEXT9SMfGAACZB0AAvLHqVJMkAepzgWEwDgE"
             bot.send_voice(chat_id, voice_file_id)
         except:
             bot.reply_to(message, "بوس بهت عزیزدلم.")
-        return  # ویس فرستاده شد، ChatGPT نره
     
-    # برای بقیه پیام‌ها — از ChatGPT جواب بگیر
-    user_name = message.from_user.first_name or "عشقم"
-    ai_reply = get_chatgpt_response(message.text, user_name)
-    bot.reply_to(message, ai_reply)
+    elif "دلم واست تنگولیده" in text:
+        romantic_reply = get_next_message(chat_id)
+        bot.reply_to(message, f"{romantic_reply}\n\nدل منم هر لحظه برات تنگولیده نینیم.❤️")
+    
+    elif any(phrase in text for phrase in ["دوستت دارم 🤍", "عشقم", "عاشقتم"]):
+        bot.reply_to(message, "همه چیز منییی؛ عاچقتم و دوستت میدالم.")
+    
+    else:
+        bot.reply_to(message, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
 
-print("بات عاشقانه با هوش مصنوعی ChatGPT — شروع شد!")
+print("بات عاشقانه — هر ساعت یک پیام عاشقانه — شروع شد!")
 
 bot.infinity_polling(interval=3)
-
-
