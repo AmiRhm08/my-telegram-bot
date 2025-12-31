@@ -10,20 +10,8 @@ import datetime
 
 TOKEN = "8206760539:AAHS7iceJT5f2GjNgXU-MiOYat7cyxeBPuU"
 
-# پروکسی MTProto که فرستادی
-proxy = {
-    'proxy_type': 'mtproto',
-    'addr': 'AMD-epic.sheshko.info',
-    'port': 443,
-    'secret': '7hYDAQIAAQAB_AMDhuJMOt1tZWRpYS5zdGVhbXBvd2VyZWQuY29t'
-}
-
-# ساخت بات بدون requests_proxy
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
-# تنظیم پروکسی بعد از ساخت بات (روش قدیمی و ساپورت‌شده)
-from telebot import apihelper
-apihelper.proxy = proxy
 romantic_messages = [
     "مریم جونم، تو بهترین اتفاق زندگی منی. ❤️",
     "هر لحظه به فکرتم عشقم. 💕",
@@ -236,10 +224,9 @@ def handle_messages(message):
         try:
             voice_file_id = "AwACAgQAAxkBAAEZwd9pUigjHTi30H-dGJgPzuQHlOMojAACtRoAAk2bkFKfS-ri4Y6g9DYE"
             bot.send_voice(chat_id, voice_file_id)
-            bot.send_message(chat_id, "ویس بوس فرستاده شد! 😘")
-        except Exception as e:
-            bot.reply_to(message, f"خطا در ارسال ویس: {str(e)}\nبوس بهت عزیزدلم 😘")
-            
+        except:
+            bot.reply_to(message, "بوس بهت عزیزدلم.")
+    
     elif "دلم واست تنگولیده" in text:
         romantic_reply = get_next_message(chat_id)
         bot.reply_to(message, f"{romantic_reply}\n\nدل منم هر لحظه برات تنگولیده نینیم.❤️")
