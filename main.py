@@ -81,7 +81,7 @@ def background_sender():
                     print(f"خطا در ارسال به {chat_id}: {e}")
                     continue
             
-            time.sleep(3600)  # هر ساعت یک پیام
+            time.sleep(10)  # هر ساعت یک پیام
         
         except Exception as e:
             print(f"خطا در لوپ اصلی: {e}")
