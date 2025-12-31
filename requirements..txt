@@ -1,2 +1,3 @@
 pyTelegramBotAPI
 openai==0.28.0
+--root-user-action=ignore
