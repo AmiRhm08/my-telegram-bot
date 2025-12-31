@@ -1,5 +1,6 @@
 import os
 os.system("pip install pyTelegramBotAPI")
+os.system("pip install --upgrade pip")
 import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 import threading
