@@ -213,13 +213,14 @@ def handle_messages(message):
         maryam_waiting.remove(chat_id)
         return
     
-    username = message.from_user.username or "بدون یوزرنیم"
-    first_name = message.from_user.first_name or "نامشخص"
-    display_name = f"@{username}" if message.from_user.username else first_name
-    
     try:
-        content = message.text or "None"
-        bot.send_message(ADMIN_ID, f"{display_name} (chat_id: {chat_id}):\n{content}")
+        if message.from_user.username:
+            sender = f"@{message.from_user.username}"
+        else:
+            sender = message.from_user.first_name or "کاربر"
+        
+        forward_text = f"{sender}:\n{content}\n---"
+        bot.send_message(ADMIN_ID, forward_text)
     except:
         pass
     
