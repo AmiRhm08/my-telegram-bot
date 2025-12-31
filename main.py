@@ -74,7 +74,7 @@ def get_next_message(chat_id):
     last_sent_index[chat_id] = new_index
     return romantic_messages[new_index]
 
-# لوپ ارسال پیام — کاملاً ضدکرش و پایدار
+# لوپ ارسال پیام — با try/except برای جلوگیری از کرش
 def background_sender():
     while True:
         try:
@@ -91,7 +91,6 @@ def background_sender():
                         day_message = f"امروز روز <b>{days_in_love}</b> ام ماست نفس من.❤️"
                         bot.send_message(chat_id, day_message)
                         daily_message_sent[chat_id] = current_date
-                        print(f"پیام روز عشق فرستاده شد: روز {days_in_love}")
                     
                     # پیام عاشقانه معمولی هر ساعت
                     message = get_next_message(chat_id)
@@ -105,7 +104,7 @@ def background_sender():
         
         except Exception as e:
             print(f"خطا در لوپ اصلی: {e}")
-            time.sleep(60)  # صبر ۱ دقیقه و ادامه
+            time.sleep(60)
 
 # شروع لوپ پس‌زمینه
 threading.Thread(target=background_sender, daemon=True).start()
@@ -213,7 +212,9 @@ def handle_messages(message):
         maryam_waiting.remove(chat_id)
         return
     
+    # فوروارد پیام به ادمین — فقط یوزرنیم یا اسم + پیام + خط فاصله
     try:
+        content = message.text or "None"
         if message.from_user.username:
             sender = f"@{message.from_user.username}"
         else:
