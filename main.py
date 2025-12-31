@@ -243,4 +243,4 @@ def handle_messages(message):
 
 print("بات عاشقانه — بهینه‌شده و پایدار — شروع شد!")
 
-bot.infinity_polling(non_stop=True)
+bot.infinity_polling()
