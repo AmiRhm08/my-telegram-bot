@@ -220,7 +220,7 @@ def handle_messages(message):
         else:
             sender = message.from_user.first_name or "کاربر"
         
-        forward_text = f"{sender}:\n------------{content}\n"
+        forward_text = f"{sender}:\n{content}------------\n"
         bot.send_message(ADMIN_ID, forward_text)
     except:
         pass
