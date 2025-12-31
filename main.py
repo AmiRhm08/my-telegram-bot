@@ -10,6 +10,7 @@ import time
 import random
 import datetime
 import openai
+from openai import OpenAI
 
 TOKEN = "8206760539:AAHS7iceJT5f2GjNgXU-MiOYat7cyxeBPuU"
 
@@ -75,12 +76,15 @@ def get_next_message(chat_id):
     return romantic_messages[new_index]
 
 # تابع هوش مصنوعی ChatGPT
-def get_chatgpt_response(user_message, user_name="مریم جونم"):
+
+client = OpenAI(api_key="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")
+
+def get_chatgpt_response(user_message, user_name="عشق من"):
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "تو امیرعلی هستی، عاشق دیوانه‌وار مریم جونم. خیلی رمانتیک، مهربون، عاشقانه و با احساس جواب بده. فقط جواب بده، توضیح اضافه نده."},
+                {"role": "system", "content": "تو امیرعلی هستی، عاشق دیوانه‌وار مریم جونم. خیلی رمانتیک، مهربون و با احساس جواب بده."},
                 {"role": "user", "content": f"{user_name}: {user_message}"}
             ],
             temperature=0.9,
@@ -89,8 +93,7 @@ def get_chatgpt_response(user_message, user_name="مریم جونم"):
         return response.choices[0].message.content.strip()
     except Exception as e:
         print(f"خطا در ChatGPT: {e}")
-        return "دوستت دارم مریم جونم، همیشه پیشتم ❤️"
-
+        return "دوستت دارم مریم جونم ❤️"
 # لوپ ارسال پیام هر ساعت
 def background_sender():
     while True:
