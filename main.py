@@ -10,7 +10,7 @@ import datetime
 
 TOKEN = "8206760539:AAHS7iceJT5f2GjNgXU-MiOYat7cyxeBPuU"
 
-# پروکسی MTProto برای دور زدن فیلتر
+# پروکسی MTProto که فرستادی
 proxy = {
     'proxy_type': 'mtproto',
     'addr': 'AMD-epic.sheshko.info',
@@ -18,8 +18,12 @@ proxy = {
     'secret': '7hYDAQIAAQAB_AMDhuJMOt1tZWRpYS5zdGVhbXBvd2VyZWQuY29t'
 }
 
-bot = telebot.TeleBot(TOKEN, parse_mode="HTML", requests_proxy=proxy)
+# ساخت بات بدون requests_proxy
+bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
+# تنظیم پروکسی بعد از ساخت بات (روش قدیمی و ساپورت‌شده)
+from telebot import apihelper
+apihelper.proxy = proxy
 romantic_messages = [
     "مریم جونم، تو بهترین اتفاق زندگی منی. ❤️",
     "هر لحظه به فکرتم عشقم. 💕",
