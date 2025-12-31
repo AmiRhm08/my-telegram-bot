@@ -13,6 +13,55 @@ TOKEN = "8206760539:AAHS7iceJT5f2GjNgXU-MiOYat7cyxeBPuU"
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
+
+from telebot import apihelper
+
+# لیست پروکسی‌های MTProto (اگر یکی قطع شد، بعدی رو امتحان می‌کنه)
+proxies = [
+    {
+        'proxy_type': 'mtproto',
+        'addr': 'proxy.mtproto.co',
+        'port': 443,
+        'secret': 'dd000000000000000000000000000000007777772e74656c656772616d2e6f7267'
+    },
+    {
+        'proxy_type': 'mtproto',
+        'addr': 'AMD-epic.sheshko.info',
+        'port': 443,
+        'secret': '7hYDAQIAAQAB_AMDhuJMOt1tZWRpYS5zdGVhbXBvd2VyZWQuY29t'
+    },
+    {
+        'proxy_type': 'mtproto',
+        'addr': 'mtproxy.ir',
+        'port': 443,
+        'secret': 'ee000000000000000000000000000000007777772e74656c656772616d2e6f7267'
+    },
+    {
+        'proxy_type': 'mtproto',
+        'addr': '149.154.160.1',
+        'port': 443,
+        'secret': 'ee000000000000000000000000000000007777772e74656c656772616d2e6f7267'
+    }
+]
+
+# امتحان پروکسی‌ها یکی یکی تا یکی کار کنه
+for proxy in proxies:
+    try:
+        apihelper.proxy = proxy
+        bot.get_me()  # تست اتصال
+        print(f"پروکسی موفق: {proxy['addr']}")
+        break
+    except:
+        print(f"پروکسی {proxy['addr']} کار نکرد، بعدی...")
+        continue
+else:
+    print("هیچ پروکسی کار نکرد — بدون پروکسی ادامه می‌دم")
+    apihelper.proxy = None  # بدون پروکسی
+
+bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
+
+
+
 romantic_messages = [
     "مریم جونم، تو بهترین اتفاق زندگی منی. ❤️",
     "هر لحظه به فکرتم عشقم. 💕",
