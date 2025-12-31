@@ -100,7 +100,7 @@ def background_sender():
             except:
                 pass
         
-        time.sleep(10)  # هر ساعت یک پیام
+        time.sleep(3600)  # هر ساعت یک پیام
 
 # شروع لوپ پس‌زمینه
 threading.Thread(target=background_sender, daemon=True).start()
@@ -224,9 +224,10 @@ def handle_messages(message):
         try:
             voice_file_id = "AwACAgQAAxkBAAEZwd9pUigjHTi30H-dGJgPzuQHlOMojAACtRoAAk2bkFKfS-ri4Y6g9DYE"
             bot.send_voice(chat_id, voice_file_id)
-        except:
-            bot.reply_to(message, "بوس بهت عزیزدلم.")
-    
+            bot.send_message(chat_id, "ویس بوس فرستاده شد! 😘")
+        except Exception as e:
+            bot.reply_to(message, f"خطا در ارسال ویس: {str(e)}\nبوس بهت عزیزدلم 😘")
+            
     elif "دلم واست تنگولیده" in text:
         romantic_reply = get_next_message(chat_id)
         bot.reply_to(message, f"{romantic_reply}\n\nدل منم هر لحظه برات تنگولیده نینیم.❤️")
