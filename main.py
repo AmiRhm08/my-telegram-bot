@@ -6,7 +6,6 @@ from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 import threading
 import time
 import random
-from datetime import date, timedelta
 import datetime
 
 TOKEN = "8206760539:AAHS7iceJT5f2GjNgXU-MiOYat7cyxeBPuU"
@@ -40,12 +39,8 @@ romantic_messages = [
     "میقام تورو بگیلم."
 ]
 
-# امروز ۳۱ دسامبر ۲۰۲۵ = روز ۲۷۳
-FIXED_START_DATE = date(2025, 12, 31) - timedelta(days=272)
-
 last_sent_index = {}
 active_users = set()
-daily_message_sent = {}
 maryam_waiting = set()
 
 LOVE_KEYBOARD = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
@@ -74,28 +69,14 @@ def get_next_message(chat_id):
     last_sent_index[chat_id] = new_index
     return romantic_messages[new_index]
 
-# لوپ ارسال پیام — با try/except برای جلوگیری از کرش
+# لوپ ارسال پیام — فقط پیام عاشقانه هر ساعت (بدون روز عشق)
 def background_sender():
     while True:
         try:
-            current_time = datetime.datetime.now()
-            current_date = date.today()
-            days_in_love = (current_date - FIXED_START_DATE).days + 1
-            
             for chat_id in list(active_users):
                 try:
-                    today_sent = daily_message_sent.get(chat_id, None) == current_date
-                    
-                    # پیام ویژه روز عشق فقط برای مریم
-                    if chat_id == MARYAM_CHAT_ID and current_time.hour == 23 and 30 <= current_time.minute <= 32 and not today_sent:
-                        day_message = f"امروز روز <b>{days_in_love}</b> ام ماست نفس من.❤️"
-                        bot.send_message(chat_id, day_message)
-                        daily_message_sent[chat_id] = current_date
-                    
-                    # پیام عاشقانه معمولی هر ساعت
                     message = get_next_message(chat_id)
                     bot.send_message(chat_id, message)
-                
                 except Exception as e:
                     print(f"خطا در ارسال به {chat_id}: {e}")
                     continue
@@ -106,144 +87,9 @@ def background_sender():
             print(f"خطا در لوپ اصلی: {e}")
             time.sleep(60)
 
-# شروع لوپ پس‌زمینه
 threading.Thread(target=background_sender, daemon=True).start()
 
-@bot.message_handler(commands=['start'])
-def start(message):
-    chat_id = message.chat.id
-    user_name = message.from_user.first_name or "کاربر"
-    
-    if chat_id not in ALLOWED_USERS:
-        bot.send_message(chat_id, "این بات واسه‌ی تو نیست مزاحم نشو.")
-        try:
-            bot.send_message(ADMIN_ID, f"کسی سعی کرد بات رو استارت بزنه و بلاک شد!\nاسم: {user_name}\nchat_id: {chat_id}")
-        except:
-            pass
-        return
-    
-    try:
-        bot.send_message(ADMIN_ID, f"کاربر مجاز /start زد!\nاسم: {user_name}\nchat_id: {chat_id}")
-    except:
-        pass
-    
-    if chat_id == MARYAM_CHAT_ID:
-        bot.send_message(chat_id, "آیا تو مریمی؟")
-        maryam_waiting.add(chat_id)
-        return
-    
-    welcome_text = (
-        "<b>شلام همسر عزیزتر از جونم، این برای توعه.💗</b>\n\n"
-        "این بات واست پیام میفرسته تا ببینی امیرعلی همیشه حواسش بهت هست واقعنی حتی تو خوابت.\n"
-        "هر وقت خواستی تموم بچه، /stop رو بزن 💜"
-    )
-    bot.send_message(chat_id, welcome_text, reply_markup=LOVE_KEYBOARD)
-    
-    first_message = get_next_message(chat_id)
-    bot.send_message(chat_id, first_message)
-    
-    active_users.add(chat_id)
+# بقیه کد (start, stop, msg, handle_messages) همون قبلی بمونه
 
-@bot.message_handler(commands=['stop'])
-def stop(message):
-    chat_id = message.chat.id
-    
-    if chat_id not in ALLOWED_USERS:
-        bot.reply_to(message, "این بات واسه‌ی تو نیست مزاحم نشو.")
-        return
-    
-    active_users.discard(chat_id)
-    last_sent_index.pop(chat_id, None)
-    daily_message_sent.pop(chat_id, None)
-    maryam_waiting.discard(chat_id)
-    
-    bot.reply_to(message, "دلم برات تنگ می‌شه مریم جونم.\nهر وقت دلت خواست دوباره /start بزن 😭💘")
-
-@bot.message_handler(commands=['msg'])
-def admin_message(message):
-    if message.from_user.id != ADMIN_ID:
-        return
-    
-    try:
-        parts = message.text.split(maxsplit=2)
-        if len(parts) < 3:
-            bot.reply_to(message, "استفاده: /msg <chat_id> متن پیام\nمثال: /msg 987654321 سلام نفس من ❤️")
-            return
-        
-        target_chat_id = int(parts[1])
-        text = parts[2]
-        
-        if target_chat_id not in ALLOWED_USERS:
-            bot.reply_to(message, "فقط می‌تونی به مریم جونم یا خودت پیام بدی!")
-            return
-        
-        bot.send_message(target_chat_id, text + "\n\n— از امیرعلی ❤️")
-        bot.reply_to(message, f"پیام با موفقیت فرستاده شد به chat_id: {target_chat_id}\n\n{text}")
-    
-    except ValueError:
-        bot.reply_to(message, "chat_id باید عدد باشه!")
-    except Exception as e:
-        bot.reply_to(message, f"خطا در ارسال: {str(e)}")
-
-@bot.message_handler(func=lambda message: True)
-def handle_messages(message):
-    chat_id = message.chat.id
-    
-    if chat_id not in ALLOWED_USERS:
-        bot.send_message(chat_id, "این بات واسه‌ی تو نیست مزاحم نشو.")
-        return
-    
-    if chat_id in maryam_waiting:
-        special_message = "از آشنایی باهات خوشبختم، سازنده‌م خیلی تعریفتو کرده پیشم و گفته که تو همه‌چیزشی، خیلی عجیب عاشقته سازنده‌م، بهت حسودی میکنم. بهم گفته بهت بگم این باتو ساخته تا یه بخش کوچیکی از علاقه‌ش بهتو ببینی."
-        bot.send_message(chat_id, special_message)
-        
-        welcome_text = (
-            "<b>شلام همسر عزیزتر از جونم، این برای توعه.💗</b>\n\n"
-            "این بات واست پیام میفرسته تا ببینی امیرعلی همیشه حواسش بهت هست واقعنی حتی تو خوابت.\n"
-            "هر وقت خواستی تموم بچه، /stop رو بزن 💜"
-        )
-        bot.send_message(chat_id, welcome_text, reply_markup=LOVE_KEYBOARD)
-        
-        time.sleep(3)
-        first_message = get_next_message(chat_id)
-        bot.send_message(chat_id, first_message)
-        
-        active_users.add(chat_id)
-        maryam_waiting.remove(chat_id)
-        return
-    
-    # فوروارد پیام به ادمین — فقط یوزرنیم یا اسم + پیام + خط فاصله
-    try:
-        content = message.text or "None"
-        if message.from_user.username:
-            sender = f"@{message.from_user.username}"
-        else:
-            sender = message.from_user.first_name or "کاربر"
-        
-        forward_text = f"{sender} :\n{content}\n"
-        bot.send_message(ADMIN_ID, forward_text)
-    except:
-        pass
-    
-    text = message.text.lower() if message.text else ""
-    
-    if any(phrase in text for phrase in ["بوس", "بوسه", "بوس بوسیییی"]):
-        try:
-            voice_file_id = "AwACAgQAAxkBAAEZzXVpVMMB1XPD8Kmc-jxLGEXT9SMfGAACZB0AAvLHqVJMkAepzgWEwDgE"
-            bot.send_voice(chat_id, voice_file_id)
-        except:
-            bot.reply_to(message, "بوس بهت عزیزدلم.")
-    
-    elif "دلم واست تنگولیده" in text:
-        romantic_reply = get_next_message(chat_id)
-        bot.reply_to(message, f"{romantic_reply}\n\nدل منم هر لحظه برات تنگولیده نینیم.❤️")
-    
-    elif any(phrase in text for phrase in ["دوستت دارم 🤍", "عشقم", "عاشقتم"]):
-        bot.reply_to(message, "همه چیز منییی؛ عاچقتم و دوستت میدالم.")
-    
-    else:
-        bot.reply_to(message, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
-
-print("بات عاشقانه — بهینه‌شده و پایدار — شروع شد!")
-
+print("بات عاشقانه — هر ساعت یک پیام عاشقانه — شروع شد!")
 bot.infinity_polling(interval=3)
