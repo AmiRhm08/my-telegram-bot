@@ -77,14 +77,15 @@ def get_next_message(chat_id):
 
 # تابع هوش مصنوعی ChatGPT
 
-client = OpenAI(api_key="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")
+# کلید API OpenAI (همون sk-proj-... که داری — درست هست!)
+client = OpenAI(api_key="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")  # کلید کامل خودت رو بذار
 
-def get_chatgpt_response(user_message, user_name="عشق من"):
+def get_chatgpt_response(user_message, user_name="مریم جونم"):
     try:
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "تو امیرعلی هستی، عاشق دیوانه‌وار مریم جونم. خیلی رمانتیک، مهربون و با احساس جواب بده."},
+                {"role": "system", "content": "تو امیرعلی هستی، عاشق دیوانه‌وار مریم جونم. خیلی رمانتیک، مهربون، عاشقانه و با احساس جواب بده. فقط جواب بده، توضیح اضافه نده."},
                 {"role": "user", "content": f"{user_name}: {user_message}"}
             ],
             temperature=0.9,
@@ -93,7 +94,7 @@ def get_chatgpt_response(user_message, user_name="عشق من"):
         return response.choices[0].message.content.strip()
     except Exception as e:
         print(f"خطا در ChatGPT: {e}")
-        return "دوستت دارم مریم جونم ❤️"
+        return "دوستت دارم مریم جونم، همیشه پیشتم ❤️"
 # لوپ ارسال پیام هر ساعت
 def background_sender():
     while True:
@@ -246,4 +247,5 @@ def handle_messages(message):
 print("بات عاشقانه با هوش مصنوعی ChatGPT — شروع شد!")
 
 bot.infinity_polling(interval=3)
+
 
