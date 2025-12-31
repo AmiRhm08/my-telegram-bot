@@ -10,7 +10,15 @@ import datetime
 
 TOKEN = "8206760539:AAHS7iceJT5f2GjNgXU-MiOYat7cyxeBPuU"
 
-bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
+# پروکسی MTProto برای دور زدن فیلتر
+proxy = {
+    'proxy_type': 'mtproto',
+    'addr': 'AMD-epic.sheshko.info',
+    'port': 443,
+    'secret': '7hYDAQIAAQAB_AMDhuJMOt1tZWRpYS5zdGVhbXBvd2VyZWQuY29t'
+}
+
+bot = telebot.TeleBot(TOKEN, parse_mode="HTML", requests_proxy=proxy)
 
 romantic_messages = [
     "مریم جونم، تو بهترین اتفاق زندگی منی. ❤️",
