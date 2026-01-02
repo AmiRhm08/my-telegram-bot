@@ -5,6 +5,7 @@ import threading
 import time
 import random
 import sqlite3
+from collections import deque
 
 # ================== تنظیمات ==================
 TOKEN = os.getenv("BOT_TOKEN")
@@ -46,9 +47,8 @@ def remove_active_user(chat_id):
 
 active_users = load_active_users()
 waiting_for_maryam = set()
-last_sent_index = {}
 
-# ================== لاگ بهینه ادمین ==================
+# ================== لاگ ادمین ==================
 def log_to_admin(action, m, extra=None):
     try:
         user = m.from_user
@@ -94,13 +94,34 @@ romantic_messages = [
     "میقام تورو بگیلم."
 ]
 
+# ================== سیستم ضدتکرار حرفه‌ای ==================
+MESSAGE_MEMORY_SIZE = 5
+user_message_history = {}   # chat_id -> deque
+user_message_pool = {}      # chat_id -> shuffled list
+
 def get_next_message(chat_id):
-    last = last_sent_index.get(chat_id, -1)
-    idx = random.randint(0, len(romantic_messages) - 1)
-    while idx == last:
-        idx = random.randint(0, len(romantic_messages) - 1)
-    last_sent_index[chat_id] = idx
-    return romantic_messages[idx]
+    if chat_id not in user_message_history:
+        user_message_history[chat_id] = deque(maxlen=MESSAGE_MEMORY_SIZE)
+
+    history = user_message_history[chat_id]
+
+    if chat_id not in user_message_pool or not user_message_pool[chat_id]:
+        pool = romantic_messages.copy()
+        random.shuffle(pool)
+        user_message_pool[chat_id] = pool
+
+    pool = user_message_pool[chat_id]
+
+    for _ in range(len(pool)):
+        msg = pool.pop(0)
+        if msg not in history:
+            history.append(msg)
+            return msg
+        pool.append(msg)
+
+    msg = pool.pop(0)
+    history.append(msg)
+    return msg
 
 # ================== کیبورد ==================
 LOVE_KEYBOARD = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
@@ -117,13 +138,15 @@ def background_sender():
             if not AUTO_SEND_ENABLED:
                 time.sleep(30)
                 continue
+
             for chat_id in list(active_users):
                 try:
                     bot.send_message(chat_id, get_next_message(chat_id))
                     time.sleep(1)
                 except:
                     pass
-            time.sleep(10)
+
+            time.sleep(3600)
         except:
             time.sleep(60)
 
