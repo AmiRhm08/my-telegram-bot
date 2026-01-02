@@ -15,10 +15,6 @@ if not TOKEN:
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=True)
 
-print("DB_PATH exists:", os.path.exists("/data"))
-print("DB file exists:", os.path.exists("/data/users.db"))
-
-
 ADMIN_ID = 6120112176
 MARYAM_CHAT_ID = 2045238581
 TEST_ID = 8101517449
