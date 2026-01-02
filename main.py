@@ -149,6 +149,42 @@ def stop(message):
     remove_active_user(chat_id)
     bot.reply_to(message, "دلم برات تنگ می‌شه مریم جونم.\nهر وقت دلت خواست دوباره /start بزن 😭💘")
 
+@bot.message_handler(commands=['msg'])
+def admin_message(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    try:
+        parts = message.text.split(maxsplit=2)
+        if len(parts) < 3:
+            bot.reply_to(
+                message,
+                "استفاده: /msg <chat_id> متن پیام\nمثال: /msg 987654321 سلام نفس من ❤️"
+            )
+            return
+
+        target_chat_id = int(parts[1])
+        text = parts[2]
+
+        if target_chat_id not in ALLOWED_USERS:
+            bot.reply_to(message, "فقط می‌تونی به مریم جونم یا خودت پیام بدی!")
+            return
+
+        bot.send_message(
+            target_chat_id,
+            text + "\n\n— از امیرعلی ❤️"
+        )
+
+        bot.reply_to(
+            message,
+            f"پیام با موفقیت فرستاده شد به chat_id: {target_chat_id}\n\n{text}"
+        )
+
+    except ValueError:
+        bot.reply_to(message, "chat_id باید عدد باشه!")
+    except Exception as e:
+        bot.reply_to(message, f"خطا در ارسال: {str(e)}")
+
 @bot.message_handler(func=lambda m: True)
 def all_messages(message):
     chat_id = message.chat.id
