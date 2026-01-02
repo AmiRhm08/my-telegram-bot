@@ -29,7 +29,7 @@ DB_PATH = "/data/users.db"
 AUTO_SEND_ENABLED = True
 
 # 🔴 بعد از گرفتن file_id اینو پر کن
-KISS_VOICE_ID = ""
+KISS_VOICE_ID = "AwACAgQAAxkBAAIHpWlXo-uqxH-jJQbSyMncAAEvFSXPPQACZR0AAvLHqVLe4eMhtHi6LDgE"
 
 # ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
