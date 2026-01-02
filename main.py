@@ -23,7 +23,9 @@ ALLOWED_USERS = {ADMIN_ID, MARYAM_CHAT_ID, TEST_ID}
 
 DB_PATH = "/data/users.db"
 
-# ================== ویس‌های بوس (file_id ها) ==================
+SEND_INTERVAL = 600  # 1 ساعت (ثانیه)
+
+# ================== ویس‌های بوس ==================
 KISS_VOICE_IDS = [
     "AwACAgQAAxkBAAIHomlXo-sRouDBpOTOnhSqmGzm4O5ZAAJiHQAC8sepUq6tTyaCrU-UOAQ",
     "AwACAgQAAxkBAAIHoWlXo-sgPTbIwYzlZpDENnVu5aPgAAJsHAACSEaBUtd0VP95xXJwOAQ",
@@ -32,12 +34,25 @@ KISS_VOICE_IDS = [
     "AwACAgQAAxkBAAIHpWlXo-uqxH-jJQbSyMncAAEvFSXPPQACZR0AAvLHqVLe4eMhtHi6LDgE"
 ]
 
-KISS_VOICE_MEMORY = 3  # چند تای آخر تکرار نشه
+KISS_VOICE_MEMORY = 3
 
 # ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cur = conn.cursor()
-cur.execute("CREATE TABLE IF NOT EXISTS active_users (chat_id INTEGER PRIMARY KEY)")
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS active_users (
+    chat_id INTEGER PRIMARY KEY
+)
+""")
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value TEXT
+)
+""")
+
 conn.commit()
 
 def load_active_users():
@@ -52,20 +67,33 @@ def remove_active_user(cid):
     cur.execute("DELETE FROM active_users WHERE chat_id = ?", (cid,))
     conn.commit()
 
+def get_meta(key, default=None):
+    cur.execute("SELECT value FROM meta WHERE key = ?", (key,))
+    row = cur.fetchone()
+    return row[0] if row else default
+
+def set_meta(key, value):
+    cur.execute(
+        "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
+        (key, str(value))
+    )
+    conn.commit()
+
 active_users = load_active_users()
 waiting_for_maryam = set()
 
 # ================== لاگ ادمین ==================
-def log_to_admin(title, m, extra=None):
+def log_to_admin(title, m=None, extra=None):
     try:
-        u = m.from_user
-        msg = (
-            f"📌 {title}\n"
-            f"👤 {u.first_name} (@{u.username if u.username else '—'})\n"
-            f"🆔 {m.chat.id}"
-        )
-        if m.text:
-            msg += f"\n💬 {m.text}"
+        msg = f"📌 {title}"
+        if m:
+            u = m.from_user
+            msg += (
+                f"\n👤 {u.first_name} (@{u.username if u.username else '—'})"
+                f"\n🆔 {m.chat.id}"
+            )
+            if m.text:
+                msg += f"\n💬 {m.text}"
         if extra:
             msg += f"\nℹ️ {extra}"
         bot.send_message(ADMIN_ID, msg)
@@ -110,18 +138,18 @@ def get_next_message(cid):
         random.shuffle(pool)
         msg_pool[cid] = pool
 
-    history = msg_history[cid]
+    hist = msg_history[cid]
     pool = msg_pool[cid]
 
     for _ in range(len(pool)):
         msg = pool.pop(0)
-        if msg not in history:
-            history.append(msg)
+        if msg not in hist:
+            hist.append(msg)
             return msg
         pool.append(msg)
 
     msg = pool.pop(0)
-    history.append(msg)
+    hist.append(msg)
     return msg
 
 # ================== ضدتکرار ویس بوس ==================
@@ -137,18 +165,18 @@ def get_next_kiss_voice(cid):
         random.shuffle(pool)
         kiss_voice_pool[cid] = pool
 
-    history = kiss_voice_history[cid]
+    hist = kiss_voice_history[cid]
     pool = kiss_voice_pool[cid]
 
     for _ in range(len(pool)):
         vid = pool.pop(0)
-        if vid not in history:
-            history.append(vid)
+        if vid not in hist:
+            hist.append(vid)
             return vid
         pool.append(vid)
 
     vid = pool.pop(0)
-    history.append(vid)
+    hist.append(vid)
     return vid
 
 # ================== تشخیص بوس / ماچ ==================
@@ -160,7 +188,6 @@ KISS_PATTERNS = (
 def is_kiss(text: str) -> bool:
     if not text:
         return False
-
     for word in text.strip().split():
         clean = word.strip(".,!?؟،؛:()[]{}\"'")
         for p in KISS_PATTERNS:
@@ -176,22 +203,31 @@ LOVE_KEYBOARD.add(
     KeyboardButton("بوس بوسیییی")
 )
 
-# ================== ارسال خودکار (فقط یک Thread) ==================
-sender_thread_started = False
-
+# ================== ارسال خودکار حرفه‌ای (Persisted) ==================
 def background_sender():
+    log_to_admin("⏰ background_sender شروع شد")
+    set_meta("last_send_ts", 0)
     while True:
+        last_ts = float(get_meta("last_send_ts", 0))
+        now = time.time()
+
+        if now - last_ts < SEND_INTERVAL:
+            time.sleep(15)
+            continue
+
+        # زمان ارسال رسیده
         for cid in list(active_users):
             try:
                 bot.send_message(cid, get_next_message(cid))
                 time.sleep(1)
             except:
                 pass
-        time.sleep(3600)
 
-if not sender_thread_started:
-    threading.Thread(target=background_sender, daemon=True).start()
-    sender_thread_started = True
+        set_meta("last_send_ts", now)
+        log_to_admin("💌 پیام عاشقانه ارسال شد")
+
+# فقط یک Thread
+threading.Thread(target=background_sender, daemon=True).start()
 
 # ================== گرفتن file_id ویس (فقط ادمین) ==================
 @bot.message_handler(content_types=["voice"])
@@ -270,21 +306,15 @@ def all_messages(m):
             bot.send_message(cid, "آیا تو مریمی؟")
             return
 
-    # ================== پاسخ‌های متنی ==================
-
-    # 💋 بوس / ماچ (ویس رندوم + ضدتکرار)
+    # 💋 بوس / ماچ
     if text_raw.strip() == "بوس بوسیییی" or is_kiss(text_raw):
         if not KISS_VOICE_IDS:
             bot.reply_to(m, "اول باید ویس بوس‌ها رو تنظیم کنی 😅")
             return
         try:
             vid = get_next_kiss_voice(cid)
-            bot.send_voice(
-                cid,
-                vid,
-                reply_to_message_id=m.message_id
-            )
-            log_to_admin("💋 بوس / ماچ (ویس رندوم)", m)
+            bot.send_voice(cid, vid, reply_to_message_id=m.message_id)
+            log_to_admin("💋 بوس / ماچ", m)
         except Exception as e:
             log_to_admin("❌ خطا در بوس", m, str(e))
         return
