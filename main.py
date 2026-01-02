@@ -25,10 +25,11 @@ DB_PATH = "/data/users.db"
 
 # ================== ویس‌های بوس (file_id ها) ==================
 KISS_VOICE_IDS = [
-    # اینجا file_id ویس‌ها رو بذار
-    # مثال:
-    # "AwACAgQAAxkBAA...",
-    # "AwACAgQAAxkBAA...",
+    "AwACAgQAAxkBAAIHomlXo-sRouDBpOTOnhSqmGzm4O5ZAAJiHQAC8sepUq6tTyaCrU-UOAQ",
+    "AwACAgQAAxkBAAIHoWlXo-sgPTbIwYzlZpDENnVu5aPgAAJsHAACSEaBUtd0VP95xXJwOAQ",
+    "AwACAgQAAxkBAAIHo2lXo-sdpuOC5w6I9Arw6DSd2S70AAJjHQAC8sepUqvrlfUXoRxgOAQ",
+    "AwACAgQAAxkBAAIHpGlXo-uoLJD3gCI4JqD9dYrP8-ozAAJkHQAC8sepUlliwAEbMfd0OAQ",
+    "AwACAgQAAxkBAAIHpWlXo-uqxH-jJQbSyMncAAEvFSXPPQACZR0AAvLHqVLe4eMhtHi6LDgE"
 ]
 
 KISS_VOICE_MEMORY = 3  # چند تای آخر تکرار نشه
