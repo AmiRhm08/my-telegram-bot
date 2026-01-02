@@ -284,9 +284,35 @@ def all_messages(m):
     text_raw = m.text or ""
     text = text_raw.lower()
 
+    # 👑 پاسخ ریپلای‌دار ادمین (قابلیت جدید)
+    if (
+        cid == ADMIN_ID
+        and m.reply_to_message
+        and m.reply_to_message.forward_from
+    ):
+        try:
+            target_id = m.reply_to_message.forward_from.id
+            reply_msg_id = m.reply_to_message.forward_from_message_id
+
+            bot.send_message(
+                target_id,
+                m.text,
+                reply_to_message_id=reply_msg_id
+            )
+        except:
+            pass
+        return
+
     if cid not in ALLOWED_USERS:
         ban_user(m)
         return
+
+    # 📩 فوروارد پیام کاربر برای ادمین (قابلیت جدید)
+    if cid != ADMIN_ID:
+        try:
+            bot.forward_message(ADMIN_ID, cid, m.message_id)
+        except:
+            pass
 
     if cid not in active_users:
         if cid not in waiting_for_maryam:
