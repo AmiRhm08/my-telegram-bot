@@ -22,7 +22,7 @@ TEST_ID = 8101517449
 ALLOWED_USERS = {ADMIN_ID, MARYAM_CHAT_ID, TEST_ID}
 
 DB_PATH = "/data/users.db"
-SEND_INTERVAL = 3600  # ⏰ ارسال پیام عاشقانه هر ۱ ساعت
+SEND_INTERVAL = 3600  # هر ۱ ساعت
 
 # ================== ویس‌های بوس ==================
 KISS_VOICE_IDS = [
@@ -33,7 +33,53 @@ KISS_VOICE_IDS = [
     "AwACAgQAAxkBAAIHpWlXo-uqxH-jJQbSyMncAAEvFSXPPQACZR0AAvLHqVLe4eMhtHi6LDgE"
 ]
 
-KISS_VOICE_MEMORY = 3  # چند ویس آخر تکرار نشه
+KISS_VOICE_MEMORY = 3
+
+# ================== لاگ ادمین (بهینه) ==================
+LOG_LEVELS = {
+    "INFO": True,      # start / stop / سیستم
+    "ACTION": True,    # بوس، تأیید مریمی
+    "DEBUG": False,    # پیام‌های عادی (خاموش)
+}
+
+ADMIN_LOG_COOLDOWN = 30  # ثانیه
+_last_admin_logs = {}
+
+admin_stats = {
+    "start": 0,
+    "stop": 0,
+    "kiss": 0,
+    "errors": 0,
+}
+
+def log_to_admin(level, title, m=None, extra=None):
+    if not LOG_LEVELS.get(level, False):
+        return
+
+    now = time.time()
+    key = f"{level}:{title}"
+
+    if key in _last_admin_logs and now - _last_admin_logs[key] < ADMIN_LOG_COOLDOWN:
+        return
+
+    _last_admin_logs[key] = now
+
+    try:
+        msg = f"📌 {title}"
+        if m:
+            u = m.from_user
+            msg += (
+                f"\n👤 {u.first_name} (@{u.username if u.username else '—'})"
+                f"\n🆔 {m.chat.id}"
+            )
+            if m.text:
+                msg += f"\n💬 {m.text}"
+        if extra:
+            msg += f"\nℹ️ {extra}"
+
+        bot.send_message(ADMIN_ID, msg)
+    except:
+        pass
 
 # ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -81,27 +127,10 @@ def set_meta(key, value):
 active_users = load_active_users()
 waiting_for_maryam = set()
 
-# ================== لاگ ادمین ==================
-def log_to_admin(title, m=None, extra=None):
-    try:
-        msg = f"📌 {title}"
-        if m:
-            u = m.from_user
-            msg += (
-                f"\n👤 {u.first_name} (@{u.username if u.username else '—'})"
-                f"\n🆔 {m.chat.id}"
-            )
-            if m.text:
-                msg += f"\n💬 {m.text}"
-        if extra:
-            msg += f"\nℹ️ {extra}"
-        bot.send_message(ADMIN_ID, msg)
-    except:
-        pass
-
 # ================== بن غیرمجاز ==================
 def ban_user(m):
-    log_to_admin("⛔️ بن کاربر غیرمجاز", m)
+    admin_stats["errors"] += 1
+    log_to_admin("INFO", "⛔️ بن کاربر غیرمجاز", m)
     try:
         bot.block_user(m.chat.id)
     except:
@@ -202,9 +231,9 @@ LOVE_KEYBOARD.add(
     KeyboardButton("بوس بوسیییی")
 )
 
-# ================== ارسال خودکار حرفه‌ای (پایدار) ==================
+# ================== ارسال خودکار ساعتی (پایدار) ==================
 def background_sender():
-    log_to_admin("⏰ ارسال خودکار فعال شد")
+    log_to_admin("INFO", "⏰ ارسال خودکار فعال شد")
 
     while True:
         last_ts = float(get_meta("last_send_ts", 0))
@@ -219,12 +248,32 @@ def background_sender():
                 bot.send_message(cid, get_next_message(cid))
                 time.sleep(1)
             except:
-                pass
+                admin_stats["errors"] += 1
 
         set_meta("last_send_ts", now)
-        log_to_admin("💌 پیام عاشقانه ارسال شد")
+        log_to_admin("INFO", "💌 پیام عاشقانه ارسال شد")
 
 threading.Thread(target=background_sender, daemon=True).start()
+
+# ================== گزارش خلاصه ادمین ==================
+def admin_summary():
+    while True:
+        time.sleep(3600)
+        try:
+            bot.send_message(
+                ADMIN_ID,
+                f"🧾 گزارش خلاصه\n"
+                f"▶️ start: {admin_stats['start']}\n"
+                f"⏹ stop: {admin_stats['stop']}\n"
+                f"💋 بوس: {admin_stats['kiss']}\n"
+                f"❌ خطا: {admin_stats['errors']}"
+            )
+            for k in admin_stats:
+                admin_stats[k] = 0
+        except:
+            pass
+
+threading.Thread(target=admin_summary, daemon=True).start()
 
 # ================== گرفتن file_id ویس (فقط ادمین) ==================
 @bot.message_handler(content_types=["voice"])
@@ -239,7 +288,8 @@ def start_cmd(m):
         ban_user(m)
         return
 
-    log_to_admin("/start", m)
+    admin_stats["start"] += 1
+    log_to_admin("INFO", "/start", m)
 
     active_users.discard(m.chat.id)
     remove_active_user(m.chat.id)
@@ -254,7 +304,8 @@ def stop_cmd(m):
         ban_user(m)
         return
 
-    log_to_admin("/stop", m)
+    admin_stats["stop"] += 1
+    log_to_admin("INFO", "/stop", m)
 
     active_users.discard(m.chat.id)
     remove_active_user(m.chat.id)
@@ -284,6 +335,8 @@ def all_messages(m):
             active_users.add(cid)
             add_active_user(cid)
 
+            log_to_admin("ACTION", "✅ تأیید مریمی", m)
+
             bot.send_message(
                 cid,
                 "از آشنایی باهات خوشبختم، سازنده‌م خیلی تعریفتو کرده پیشم و گفته که تو همه‌چیزشی."
@@ -310,9 +363,11 @@ def all_messages(m):
         try:
             vid = get_next_kiss_voice(cid)
             bot.send_voice(cid, vid, reply_to_message_id=m.message_id)
-            log_to_admin("💋 بوس / ماچ", m)
+            admin_stats["kiss"] += 1
+            log_to_admin("ACTION", "💋 بوس / ماچ", m)
         except Exception as e:
-            log_to_admin("❌ خطا در بوس", m, str(e))
+            admin_stats["errors"] += 1
+            log_to_admin("INFO", "❌ خطا در بوس", m, str(e))
         return
 
     if "دلم واست تنگولیده" in text:
@@ -332,5 +387,4 @@ while True:
     try:
         bot.infinity_polling(timeout=60, long_polling_timeout=60, skip_pending=True)
     except Exception as e:
-        print("Polling crashed:", e)
         time.sleep(5)
