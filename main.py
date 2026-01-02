@@ -48,18 +48,26 @@ active_users = load_active_users()
 waiting_for_maryam = set()
 last_sent_index = {}
 
-# ================== بن غیرمجاز ==================
-def ban_user(chat_id, user):
+# ================== لاگ بهینه ادمین ==================
+def log_to_admin(action, m, extra=None):
     try:
-        bot.send_message(
-            ADMIN_ID,
-            f"⛔️ کاربر غیرمجاز بن شد\n"
-            f"👤 {user.first_name}\n"
-            f"👥 @{user.username if user.username else 'ندارد'}\n"
-            f"🆔 {chat_id}"
+        user = m.from_user
+        text = (
+            f"📌 {action}\n"
+            f"👤 {user.first_name} (@{user.username if user.username else 'ندارد'})\n"
+            f"🆔 {m.chat.id}"
         )
+        if m.text:
+            text += f"\n💬 {m.text}"
+        if extra:
+            text += f"\nℹ️ {extra}"
+        bot.send_message(ADMIN_ID, text)
     except:
         pass
+
+# ================== بن غیرمجاز ==================
+def ban_user(chat_id, m):
+    log_to_admin("⛔️ بن کاربر غیرمجاز", m)
     try:
         bot.block_user(chat_id)
     except:
@@ -78,14 +86,10 @@ romantic_messages = [
     "تو قشنگی مثل شکلایی که ابرا میسازن.",
     "منو توییم هرچیم بشه.\nماباهمیم هرچیم بشه.\nمال همیم هرچیم بشه.\nحتی اون آسمون از اون بالا بیاد زمین.",
     "دنیارو نمیخوام اگه تو نباشی.",
-    "فکرشم نکن، خسته شم ازت.\nفکرشم نکن دست بکشم ازت.\nفکرشم نکن تورو نبینمت یه‌روز.\nمن به عشق دیدنت نفس میکشم فقط.",
     "نگاه تو روشن شبای بی‌چراغم.",
-    "مریم و امیرعلی قراره یه خونه داشته باشن که فقط مال اون دو تا باشه:)",
     "یادت نره ما باهمیم:)",
     "قفل چشاتم.",
-    "چشمات بوسیدنیه، گردنت بوسیدنیه، دستات بوسیدنیه، عطر تنت بوسیدنیه، نفسات بوسیدنیه، مهربونیِ تهِ قلبت بوسیدنیه، موهات بوسیدنیه.",
     "دلم میخوادت.",
-    "اگه حس کردی هرجایی داری کم میاری یا هرچی، زودی بدو بیا پیشم چون من پشتتم.",
     "دوستت دارم تنها ماهِ آسمونِ قلبم:)",
     "میقام تورو بگیلم."
 ]
@@ -128,35 +132,33 @@ threading.Thread(target=background_sender, daemon=True).start()
 # ================== /start ==================
 @bot.message_handler(commands=["start"])
 def start_cmd(m):
-    chat_id = m.chat.id
-    user = m.from_user
-
-    if chat_id not in ALLOWED_USERS:
-        ban_user(chat_id, user)
+    if m.chat.id not in ALLOWED_USERS:
+        ban_user(m.chat.id, m)
         return
 
-    active_users.discard(chat_id)
-    remove_active_user(chat_id)
-    waiting_for_maryam.add(chat_id)
+    log_to_admin("▶️ /start", m)
 
-    bot.send_message(chat_id, "آیا تو مریمی؟")
+    active_users.discard(m.chat.id)
+    remove_active_user(m.chat.id)
+    waiting_for_maryam.add(m.chat.id)
+
+    bot.send_message(m.chat.id, "آیا تو مریمی؟")
 
 # ================== /stop ==================
 @bot.message_handler(commands=["stop"])
 def stop_cmd(m):
-    chat_id = m.chat.id
-    user = m.from_user
-
-    if chat_id not in ALLOWED_USERS:
-        ban_user(chat_id, user)
+    if m.chat.id not in ALLOWED_USERS:
+        ban_user(m.chat.id, m)
         return
 
-    active_users.discard(chat_id)
-    remove_active_user(chat_id)
-    waiting_for_maryam.discard(chat_id)
+    log_to_admin("⏹ /stop", m)
+
+    active_users.discard(m.chat.id)
+    remove_active_user(m.chat.id)
+    waiting_for_maryam.discard(m.chat.id)
 
     bot.send_message(
-        chat_id,
+        m.chat.id,
         "باشه عزیزم.\nهر وقت دوباره دلت خواست، /start رو بزن 💜"
     )
 
@@ -164,17 +166,17 @@ def stop_cmd(m):
 @bot.message_handler(func=lambda m: True)
 def all_messages(m):
     chat_id = m.chat.id
-    user = m.from_user
     text = (m.text or "").lower()
 
     if chat_id not in ALLOWED_USERS:
-        ban_user(chat_id, user)
+        ban_user(chat_id, m)
         return
 
     # مرحله تأیید مریمی
     if chat_id not in active_users:
         if chat_id not in waiting_for_maryam:
             waiting_for_maryam.add(chat_id)
+            log_to_admin("❓ سؤال مریمی", m)
             bot.send_message(chat_id, "آیا تو مریمی؟")
             return
 
@@ -182,6 +184,8 @@ def all_messages(m):
             waiting_for_maryam.discard(chat_id)
             active_users.add(chat_id)
             add_active_user(chat_id)
+
+            log_to_admin("✅ تأیید مریمی", m)
 
             bot.send_message(
                 chat_id,
@@ -203,10 +207,13 @@ def all_messages(m):
             bot.send_message(chat_id, get_next_message(chat_id))
             return
         else:
+            log_to_admin("❌ پاسخ منفی مریمی", m)
             bot.send_message(chat_id, "آیا تو مریمی؟")
             return
 
-    # بعد از فعال شدن
+    # رفتار عادی
+    log_to_admin("💬 پیام کاربر", m)
+
     if "بوس" in text:
         try:
             bot.send_voice(chat_id, "AwACAgQAAxkBAAEZzXVpVMMB1XPD8Kmc-jxLGEXT9SMfGAACZB0AAvLHqVJMkAepzgWEwDgE")
