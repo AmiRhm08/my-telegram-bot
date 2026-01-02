@@ -1,2 +1,2 @@
- --root-user-action
+pip>=23.1
 pyTelegramBotAPI
