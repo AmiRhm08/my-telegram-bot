@@ -66,20 +66,27 @@ def log_to_admin(level, title, m=None, extra=None):
 
     try:
         msg = f"📌 {title}"
+
         if m:
             u = m.from_user
             msg += (
                 f"\n👤 {u.first_name} (@{u.username if u.username else '—'})"
                 f"\n🆔 {m.chat.id}"
             )
+
+            # 👇 این بخش جدید
             if m.text:
-                msg += f"\n💬 {m.text}"
+                msg += f"\n پیام: {m.text}"
+            else:
+                msg += f"\n پیام: [غیر متنی]"
+
         if extra:
-            msg += f"\nℹ️ {extra}"
+            msg += f"\n {extra}"
 
         bot.send_message(ADMIN_ID, msg)
     except:
         pass
+
 
 # ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
