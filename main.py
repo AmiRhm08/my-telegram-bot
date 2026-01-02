@@ -35,14 +35,14 @@ KISS_VOICE_IDS = [
 
 KISS_VOICE_MEMORY = 3
 
-# ================== لاگ ادمین (بهینه) ==================
+# ================== لاگ ادمین ==================
 LOG_LEVELS = {
-    "INFO": True,      # start / stop / سیستم
-    "ACTION": True,    # بوس، تأیید مریمی
-    "DEBUG": False,    # پیام‌های عادی (خاموش)
+    "INFO": True,
+    "ACTION": True,
+    "DEBUG": True,
 }
 
-ADMIN_LOG_COOLDOWN = 30  # ثانیه
+ADMIN_LOG_COOLDOWN = 10
 _last_admin_logs = {}
 
 admin_stats = {
@@ -57,7 +57,7 @@ def log_to_admin(level, title, m=None, extra=None):
         return
 
     now = time.time()
-    key = f"{level}:{title}"
+    key = f"{level}:{title}:{m.chat.id if m else ''}"
 
     if key in _last_admin_logs and now - _last_admin_logs[key] < ADMIN_LOG_COOLDOWN:
         return
@@ -73,8 +73,6 @@ def log_to_admin(level, title, m=None, extra=None):
                 f"\n👤 {u.first_name} (@{u.username if u.username else '—'})"
                 f"\n🆔 {m.chat.id}"
             )
-
-            # 👇 این بخش جدید
             if m.text:
                 msg += f"\n پیام: {m.text}"
             else:
@@ -86,7 +84,6 @@ def log_to_admin(level, title, m=None, extra=None):
         bot.send_message(ADMIN_ID, msg)
     except:
         pass
-
 
 # ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -214,7 +211,7 @@ def get_next_kiss_voice(cid):
     hist.append(vid)
     return vid
 
-# ================== تشخیص بوس / ماچ ==================
+# ================== تشخیص بوس ==================
 KISS_PATTERNS = (
     re.compile(r"^بو+س+$"),
     re.compile(r"^ما+چ+$"),
@@ -238,14 +235,12 @@ LOVE_KEYBOARD.add(
     KeyboardButton("بوس بوسیییی")
 )
 
-# ================== ارسال خودکار ساعتی (پایدار) ==================
+# ================== ارسال خودکار ==================
 def background_sender():
     log_to_admin("INFO", "⏰ ارسال خودکار فعال شد")
-
     while True:
         last_ts = float(get_meta("last_send_ts", 0))
         now = time.time()
-
         if now - last_ts < SEND_INTERVAL:
             time.sleep(20)
             continue
@@ -262,67 +257,29 @@ def background_sender():
 
 threading.Thread(target=background_sender, daemon=True).start()
 
-# ================== گزارش خلاصه ادمین ==================
-def admin_summary():
-    while True:
-        time.sleep(3600)
-        try:
-            bot.send_message(
-                ADMIN_ID,
-                f"🧾 گزارش خلاصه\n"
-                f"▶️ start: {admin_stats['start']}\n"
-                f"⏹️ stop: {admin_stats['stop']}\n"
-                f"💋 بوس: {admin_stats['kiss']}\n"
-                f"❌ خطا: {admin_stats['errors']}"
-            )
-            for k in admin_stats:
-                admin_stats[k] = 0
-        except:
-            pass
+# ================== دستور ارسال پیام ادمین ==================
+@bot.message_handler(commands=["send"])
+def admin_send(m):
+    if m.from_user.id != ADMIN_ID:
+        return
+    try:
+        _, cid, text = m.text.split(" ", 2)
+        bot.send_message(int(cid), text)
+        bot.reply_to(m, "✅ ارسال شد")
+    except:
+        bot.reply_to(m, "❌ فرمت صحیح نیست")
 
-threading.Thread(target=admin_summary, daemon=True).start()
-
-# ================== گرفتن file_id ویس (فقط ادمین) ==================
+# ================== دریافت ویس ادمین ==================
 @bot.message_handler(content_types=["voice"])
 def get_voice_id(m):
     if m.from_user.id == ADMIN_ID:
         bot.send_message(ADMIN_ID, f"🎧 file_id:\n{m.voice.file_id}")
 
-# ================== /start ==================
-@bot.message_handler(commands=["start"])
-def start_cmd(m):
-    if m.chat.id not in ALLOWED_USERS:
-        ban_user(m)
-        return
-
-    admin_stats["start"] += 1
-    log_to_admin("INFO", "/start", m)
-
-    active_users.discard(m.chat.id)
-    remove_active_user(m.chat.id)
-    waiting_for_maryam.add(m.chat.id)
-
-    bot.send_message(m.chat.id, "آیا تو مریمی؟")
-
-# ================== /stop ==================
-@bot.message_handler(commands=["stop"])
-def stop_cmd(m):
-    if m.chat.id not in ALLOWED_USERS:
-        ban_user(m)
-        return
-
-    admin_stats["stop"] += 1
-    log_to_admin("INFO", "/stop", m)
-
-    active_users.discard(m.chat.id)
-    remove_active_user(m.chat.id)
-    waiting_for_maryam.discard(m.chat.id)
-
-    bot.send_message(m.chat.id, "باشه عزیزم.\nهر وقت دلت خواست /start رو بزن 💜")
-
 # ================== پیام‌ها ==================
 @bot.message_handler(func=lambda m: True)
 def all_messages(m):
+    log_to_admin("DEBUG", "📩 پیام جدید", m)
+
     cid = m.chat.id
     text_raw = m.text or ""
     text = text_raw.lower()
@@ -362,19 +319,14 @@ def all_messages(m):
             bot.send_message(cid, "آیا تو مریمی؟")
             return
 
-    # 💋 بوس / ماچ
     if text_raw.strip() == "بوس بوسیییی" or is_kiss(text_raw):
-        if not KISS_VOICE_IDS:
-            bot.reply_to(m, "اول باید ویس بوس‌ها رو تنظیم کنی 😅")
-            return
         try:
             vid = get_next_kiss_voice(cid)
             bot.send_voice(cid, vid, reply_to_message_id=m.message_id)
             admin_stats["kiss"] += 1
             log_to_admin("ACTION", "💋 بوس / ماچ", m)
-        except Exception as e:
+        except:
             admin_stats["errors"] += 1
-            log_to_admin("INFO", "❌ خطا در بوس", m, str(e))
         return
 
     if "دلم واست تنگولیده" in text:
@@ -387,11 +339,11 @@ def all_messages(m):
 
     bot.reply_to(m, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
 
-# ================== polling پایدار ==================
+# ================== polling ==================
 bot.delete_webhook(drop_pending_updates=True)
 
 while True:
     try:
         bot.infinity_polling(timeout=60, long_polling_timeout=60, skip_pending=True)
-    except Exception as e:
+    except:
         time.sleep(5)
