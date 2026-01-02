@@ -265,7 +265,7 @@ def all_messages(m):
             )
             log_to_admin("💋 ویس بوس ارسال شد", m)
         except Exception as e:
-            log_to_admin("❌ خطا در ویس بوس", m, str(e)).
+            log_to_admin("❌ خطا در ویس بوس", m, str(e))
             
         return    
 
