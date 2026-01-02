@@ -28,8 +28,8 @@ ALLOWED_USERS = {
 DB_PATH = "/data/users.db"
 AUTO_SEND_ENABLED = True
 
-# 🔴 حتماً file_id واقعی ویس بوس رو اینجا بذار
-KISS_VOICE_ID = "AwACAgQAAxkBAAIHpWlXo-uqxH-jJQbSyMncAAEvFSXPPQACZR0AAvLHqVLe4eMhtHi6LDgE"
+# 🔴 بعد از گرفتن file_id اینو پر کن
+KISS_VOICE_ID = ""
 
 # ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -77,7 +77,7 @@ def ban_user(m):
     except:
         pass
 
-# ================== پیام‌ها ==================
+# ================== پیام‌های عاشقانه ==================
 romantic_messages = [
     "مریم جونم، تو بهترین اتفاق زندگی منی. ❤️",
     "هر لحظه به فکرتم عشقم. 💕",
@@ -121,11 +121,25 @@ def get_next_message(chat_id):
     history.append(msg)
     return msg
 
-# ================== تشخیص بوس ==================
+# ================== تشخیص بوس / ماچ (کلمه‌ای + کشیده) ==================
 def is_kiss(text: str) -> bool:
     if not text:
         return False
-    return bool(re.search(r"(بوس|بوسی|بوسه|😘|😗|😙|😚|💋)", text))
+
+    words = text.strip().split()
+
+    for word in words:
+        clean = word.strip(".,!?؟،؛:()[]{}\"'")
+
+        # بوووسسس
+        if re.fullmatch(r"بو+س+", clean):
+            return True
+
+        # ماااچچ
+        if re.fullmatch(r"ما+چ+", clean):
+            return True
+
+    return False
 
 # ================== کیبورد ==================
 LOVE_KEYBOARD = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
@@ -160,10 +174,7 @@ threading.Thread(target=background_sender, daemon=True).start()
 @bot.message_handler(content_types=['voice'])
 def get_voice_id(m):
     if m.from_user.id == ADMIN_ID:
-        bot.send_message(
-            ADMIN_ID,
-            f"🎧 file_id ویس:\n{m.voice.file_id}"
-        )
+        bot.send_message(ADMIN_ID, f"🎧 file_id:\n{m.voice.file_id}")
 
 # ================== /start ==================
 @bot.message_handler(commands=["start"])
@@ -242,14 +253,14 @@ def all_messages(m):
 
     # ================== پاسخ‌های متنی ==================
 
-    # 💋 بوس دقیقاً اینجاست
+    # 💋 بوس / ماچ
     if text_raw.strip() == "بوس بوسیییی" or is_kiss(text_raw):
         if not KISS_VOICE_ID:
             bot.reply_to(m, "اول باید ویس بوس رو تنظیم کنی 😅")
             return
         try:
             bot.send_voice(cid, KISS_VOICE_ID)
-            log_to_admin("💋 بوس", m)
+            log_to_admin("💋 بوس / ماچ", m)
         except Exception as e:
             log_to_admin("❌ خطا در بوس", m, str(e))
         return
