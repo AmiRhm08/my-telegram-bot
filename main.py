@@ -23,15 +23,20 @@ ALLOWED_USERS = {ADMIN_ID, MARYAM_CHAT_ID, TEST_ID}
 
 DB_PATH = "/data/users.db"
 
-# 🔴 بعد از گرفتن file_id ویس بوس اینو پر کن
-KISS_VOICE_ID = ""
+# ================== ویس‌های بوس (file_id ها) ==================
+KISS_VOICE_IDS = [
+    # اینجا file_id ویس‌ها رو بذار
+    # مثال:
+    # "AwACAgQAAxkBAA...",
+    # "AwACAgQAAxkBAA...",
+]
+
+KISS_VOICE_MEMORY = 3  # چند تای آخر تکرار نشه
 
 # ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cur = conn.cursor()
-cur.execute(
-    "CREATE TABLE IF NOT EXISTS active_users (chat_id INTEGER PRIMARY KEY)"
-)
+cur.execute("CREATE TABLE IF NOT EXISTS active_users (chat_id INTEGER PRIMARY KEY)")
 conn.commit()
 
 def load_active_users():
@@ -90,33 +95,60 @@ romantic_messages = [
     "دوستت دارم تنها ماهِ آسمونِ قلبم:)",
 ]
 
-# ================== ضدتکرار ==================
+# ================== ضدتکرار پیام ==================
 MESSAGE_MEMORY = 5
-user_history = {}
-user_pool = {}
+msg_history = {}
+msg_pool = {}
 
 def get_next_message(cid):
-    if cid not in user_history:
-        user_history[cid] = deque(maxlen=MESSAGE_MEMORY)
+    if cid not in msg_history:
+        msg_history[cid] = deque(maxlen=MESSAGE_MEMORY)
 
-    if cid not in user_pool or not user_pool[cid]:
+    if cid not in msg_pool or not msg_pool[cid]:
         pool = romantic_messages[:]
         random.shuffle(pool)
-        user_pool[cid] = pool
+        msg_pool[cid] = pool
 
-    hist = user_history[cid]
-    pool = user_pool[cid]
+    history = msg_history[cid]
+    pool = msg_pool[cid]
 
     for _ in range(len(pool)):
         msg = pool.pop(0)
-        if msg not in hist:
-            hist.append(msg)
+        if msg not in history:
+            history.append(msg)
             return msg
         pool.append(msg)
 
     msg = pool.pop(0)
-    hist.append(msg)
+    history.append(msg)
     return msg
+
+# ================== ضدتکرار ویس بوس ==================
+kiss_voice_history = {}
+kiss_voice_pool = {}
+
+def get_next_kiss_voice(cid):
+    if cid not in kiss_voice_history:
+        kiss_voice_history[cid] = deque(maxlen=KISS_VOICE_MEMORY)
+
+    if cid not in kiss_voice_pool or not kiss_voice_pool[cid]:
+        pool = KISS_VOICE_IDS[:]
+        random.shuffle(pool)
+        kiss_voice_pool[cid] = pool
+
+    history = kiss_voice_history[cid]
+    pool = kiss_voice_pool[cid]
+
+    for _ in range(len(pool)):
+        vid = pool.pop(0)
+        if vid not in history:
+            history.append(vid)
+            return vid
+        pool.append(vid)
+
+    vid = pool.pop(0)
+    history.append(vid)
+    return vid
 
 # ================== تشخیص بوس / ماچ ==================
 KISS_PATTERNS = (
@@ -151,7 +183,7 @@ def background_sender():
         for cid in list(active_users):
             try:
                 bot.send_message(cid, get_next_message(cid))
-                time.sleep(1)  # ضد flood
+                time.sleep(1)
             except:
                 pass
         time.sleep(3600)
@@ -207,7 +239,7 @@ def all_messages(m):
         ban_user(m)
         return
 
-    # مرحله تأیید مریمی
+    # مرحله مریمی
     if cid not in active_users:
         if cid not in waiting_for_maryam:
             waiting_for_maryam.add(cid)
@@ -239,18 +271,19 @@ def all_messages(m):
 
     # ================== پاسخ‌های متنی ==================
 
-    # 💋 بوس / ماچ (ریپلای)
+    # 💋 بوس / ماچ (ویس رندوم + ضدتکرار)
     if text_raw.strip() == "بوس بوسیییی" or is_kiss(text_raw):
-        if not KISS_VOICE_ID:
-            bot.reply_to(m, "اول باید ویس بوس رو تنظیم کنی 😅")
+        if not KISS_VOICE_IDS:
+            bot.reply_to(m, "اول باید ویس بوس‌ها رو تنظیم کنی 😅")
             return
         try:
+            vid = get_next_kiss_voice(cid)
             bot.send_voice(
                 cid,
-                KISS_VOICE_ID,
+                vid,
                 reply_to_message_id=m.message_id
             )
-            log_to_admin("💋 بوس / ماچ", m)
+            log_to_admin("💋 بوس / ماچ (ویس رندوم)", m)
         except Exception as e:
             log_to_admin("❌ خطا در بوس", m, str(e))
         return
