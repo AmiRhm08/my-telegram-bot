@@ -1,4 +1,5 @@
 import os
+os.system("pip install openai")
 import time
 import random
 import sqlite3
