@@ -23,13 +23,15 @@ ALLOWED_USERS = {ADMIN_ID, MARYAM_CHAT_ID, TEST_ID}
 
 DB_PATH = "/data/users.db"
 
-# 🔴 بعد از گرفتن file_id ویس بوس، اینو پر کن
+# 🔴 بعد از گرفتن file_id ویس بوس اینو پر کن
 KISS_VOICE_ID = ""
 
-# ================== دیتابیس (سبک و امن) ==================
+# ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cur = conn.cursor()
-cur.execute("CREATE TABLE IF NOT EXISTS active_users (chat_id INTEGER PRIMARY KEY)")
+cur.execute(
+    "CREATE TABLE IF NOT EXISTS active_users (chat_id INTEGER PRIMARY KEY)"
+)
 conn.commit()
 
 def load_active_users():
@@ -47,7 +49,7 @@ def remove_active_user(cid):
 active_users = load_active_users()
 waiting_for_maryam = set()
 
-# ================== لاگ ادمین (کم‌اسپم) ==================
+# ================== لاگ ادمین ==================
 def log_to_admin(title, m, extra=None):
     try:
         u = m.from_user
@@ -72,7 +74,7 @@ def ban_user(m):
     except:
         pass
 
-# ================== پیام‌ها ==================
+# ================== پیام‌های عاشقانه ==================
 romantic_messages = [
     "مریم جونم، تو بهترین اتفاق زندگی منی. ❤️",
     "هر لحظه به فکرتم عشقم. 💕",
@@ -88,7 +90,7 @@ romantic_messages = [
     "دوستت دارم تنها ماهِ آسمونِ قلبم:)",
 ]
 
-# ================== ضدتکرار سریع ==================
+# ================== ضدتکرار ==================
 MESSAGE_MEMORY = 5
 user_history = {}
 user_pool = {}
@@ -116,7 +118,7 @@ def get_next_message(cid):
     hist.append(msg)
     return msg
 
-# ================== تشخیص بوس / ماچ (کلمه‌ای + کشیده) ==================
+# ================== تشخیص بوس / ماچ ==================
 KISS_PATTERNS = (
     re.compile(r"^بو+س+$"),
     re.compile(r"^ما+چ+$"),
@@ -141,7 +143,9 @@ LOVE_KEYBOARD.add(
     KeyboardButton("بوس بوسیییی")
 )
 
-# ================== ارسال خودکار (بدون فشار) ==================
+# ================== ارسال خودکار (فقط یک Thread) ==================
+sender_thread_started = False
+
 def background_sender():
     while True:
         for cid in list(active_users):
@@ -152,7 +156,9 @@ def background_sender():
                 pass
         time.sleep(3600)
 
-threading.Thread(target=background_sender, daemon=True).start()
+if not sender_thread_started:
+    threading.Thread(target=background_sender, daemon=True).start()
+    sender_thread_started = True
 
 # ================== گرفتن file_id ویس (فقط ادمین) ==================
 @bot.message_handler(content_types=["voice"])
