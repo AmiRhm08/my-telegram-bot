@@ -5,6 +5,7 @@ import threading
 import time
 import random
 import sqlite3
+import re
 from collections import deque
 
 # ================== تنظیمات ==================
@@ -51,17 +52,17 @@ waiting_for_maryam = set()
 # ================== لاگ ادمین ==================
 def log_to_admin(action, m, extra=None):
     try:
-        user = m.from_user
-        text = (
+        u = m.from_user
+        txt = (
             f"📌 {action}\n"
-            f"👤 {user.first_name} (@{user.username if user.username else 'ندارد'})\n"
+            f"👤 {u.first_name} (@{u.username if u.username else 'ندارد'})\n"
             f"🆔 {m.chat.id}"
         )
         if m.text:
-            text += f"\n💬 {m.text}"
+            txt += f"\n💬 {m.text}"
         if extra:
-            text += f"\nℹ️ {extra}"
-        bot.send_message(ADMIN_ID, text)
+            txt += f"\nℹ️ {extra}"
+        bot.send_message(ADMIN_ID, txt)
     except:
         pass
 
@@ -94,10 +95,10 @@ romantic_messages = [
     "میقام تورو بگیلم."
 ]
 
-# ================== سیستم ضدتکرار حرفه‌ای ==================
+# ================== سیستم ضدتکرار ==================
 MESSAGE_MEMORY_SIZE = 5
-user_message_history = {}   # chat_id -> deque
-user_message_pool = {}      # chat_id -> shuffled list
+user_message_history = {}
+user_message_pool = {}
 
 def get_next_message(chat_id):
     if chat_id not in user_message_history:
@@ -122,6 +123,24 @@ def get_next_message(chat_id):
     msg = pool.pop(0)
     history.append(msg)
     return msg
+
+# ================== تشخیص بوس (قطعی) ==================
+def is_kiss_message(text: str) -> bool:
+    if not text:
+        return False
+
+    patterns = [
+        r"^بوس",
+        r"بوسه",
+        r"بوسی",
+        r"[😘😗😙😚💋]"
+    ]
+
+    for p in patterns:
+        if re.search(p, text):
+            return True
+
+    return False
 
 # ================== کیبورد ==================
 LOVE_KEYBOARD = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
@@ -189,7 +208,8 @@ def stop_cmd(m):
 @bot.message_handler(func=lambda m: True)
 def all_messages(m):
     chat_id = m.chat.id
-    text = (m.text or "").lower()
+    text_raw = m.text or ""
+    text = text_raw.lower()
 
     if chat_id not in ALLOWED_USERS:
         ban_user(chat_id, m)
@@ -237,18 +257,25 @@ def all_messages(m):
     # رفتار عادی
     log_to_admin("💬 پیام کاربر", m)
 
-    if any(word in text for word in ["بوس", "بوسه", "بوسی", "😘", "😗", "😙"]):
+    if is_kiss_message(text_raw):
         try:
             bot.send_voice(
                 chat_id,
                 "AwACAgQAAxkBAAEZzXVpVMMB1XPD8Kmc-jxLGEXT9SMfGAACZB0AAvLHqVJMkAepzgWEwDgE"
             )
-        except:
-            bot.reply_to(m, "بوس بهت عزیزدلم.")
+            log_to_admin("💋 ویس بوس ارسال شد", m)
+        except Exception as e:
+            log_to_admin("❌ خطا در ویس بوس", m, str(e))
+
     elif "دلم واست تنگولیده" in text:
-        bot.reply_to(m, f"{get_next_message(chat_id)}\n\nدل منم هر لحظه برات تنگولیده نینیم.❤️")
+        bot.reply_to(
+            m,
+            f"{get_next_message(chat_id)}\n\nدل منم هر لحظه برات تنگولیده نینیم.❤️"
+        )
+
     elif "دوستت دارم" in text or "عشقم" in text:
         bot.reply_to(m, "همه چیز منییی؛ عاچقتم و دوستت میدالم.")
+
     else:
         bot.reply_to(m, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
 
