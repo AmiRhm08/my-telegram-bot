@@ -18,7 +18,8 @@ MARYAM_CHAT_ID = 2045238581
 TEST_ID = 8101517449
 ALLOWED_USERS = {MARYAM_CHAT_ID, ADMIN_ID, TEST_ID}
 
-DB_PATH = "users.db"
+DB_PATH = "/data/users.db"
+
 
 # ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -222,6 +223,8 @@ def all_messages(message):
         bot.reply_to(message, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
 
 print("بات عاشقانه با ذخیره کاربر روشن شد ❤️")
+
+bot.delete_webhook(drop_pending_updates=True)
 while True:
     try:
         bot.infinity_polling(
@@ -230,6 +233,6 @@ while True:
             skip_pending=True
         )
     except Exception as e:
-        print("Polling crash:", e)
+        print("Polling crashed:", e)
         time.sleep(5)
 
