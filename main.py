@@ -222,4 +222,14 @@ def all_messages(message):
         bot.reply_to(message, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
 
 print("بات عاشقانه با ذخیره کاربر روشن شد ❤️")
-bot.infinity_polling(skip_pending=True)
+while True:
+    try:
+        bot.infinity_polling(
+            timeout=60,
+            long_polling_timeout=60,
+            skip_pending=True
+        )
+    except Exception as e:
+        print("Polling crash:", e)
+        time.sleep(5)
+
