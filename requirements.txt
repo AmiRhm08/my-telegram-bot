@@ -1,2 +1,1 @@
 pyTelegramBotAPI
---root-user-action=ignore
