@@ -254,7 +254,6 @@ SYSTEM_PROMPT = (
 )
 
 def ai_reply(chat_id: int, user_text: str) -> str:
-    print("AI_REPLY_CALLED:", user_text)
     if chat_id not in ai_memory:
         ai_memory[chat_id] = deque(maxlen=AI_MEMORY_SIZE)
 
@@ -274,8 +273,10 @@ def ai_reply(chat_id: int, user_text: str) -> str:
         reply = resp.choices[0].message.content.strip()
         memory.append({"role": "assistant", "content": reply})
         return reply
-    except:
+    except Exception as e:
+        print("AI_ERROR:", e)
         return "الان یه لحظه ذهنم شلوغه… ولی کنارتم 🤍"
+
 
 # ================== پیام‌ها ==================
 @bot.message_handler(func=lambda m: True)
