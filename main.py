@@ -237,9 +237,12 @@ def all_messages(m):
     # رفتار عادی
     log_to_admin("💬 پیام کاربر", m)
 
-    if "بوس" in text:
+    if any(word in text for word in ["بوس", "بوسه", "بوسی", "😘", "😗", "😙"]):
         try:
-            bot.send_voice(chat_id, "AwACAgQAAxkBAAEZzXVpVMMB1XPD8Kmc-jxLGEXT9SMfGAACZB0AAvLHqVJMkAepzgWEwDgE")
+            bot.send_voice(
+                chat_id,
+                "AwACAgQAAxkBAAEZzXVpVMMB1XPD8Kmc-jxLGEXT9SMfGAACZB0AAvLHqVJMkAepzgWEwDgE"
+            )
         except:
             bot.reply_to(m, "بوس بهت عزیزدلم.")
     elif "دلم واست تنگولیده" in text:
