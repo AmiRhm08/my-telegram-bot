@@ -22,8 +22,7 @@ TEST_ID = 8101517449
 ALLOWED_USERS = {ADMIN_ID, MARYAM_CHAT_ID, TEST_ID}
 
 DB_PATH = "/data/users.db"
-
-SEND_INTERVAL = 600  # 1 ساعت (ثانیه)
+SEND_INTERVAL = 3600  # ⏰ ارسال پیام عاشقانه هر ۱ ساعت
 
 # ================== ویس‌های بوس ==================
 KISS_VOICE_IDS = [
@@ -34,7 +33,7 @@ KISS_VOICE_IDS = [
     "AwACAgQAAxkBAAIHpWlXo-uqxH-jJQbSyMncAAEvFSXPPQACZR0AAvLHqVLe4eMhtHi6LDgE"
 ]
 
-KISS_VOICE_MEMORY = 3
+KISS_VOICE_MEMORY = 3  # چند ویس آخر تکرار نشه
 
 # ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -203,19 +202,18 @@ LOVE_KEYBOARD.add(
     KeyboardButton("بوس بوسیییی")
 )
 
-# ================== ارسال خودکار حرفه‌ای (Persisted) ==================
+# ================== ارسال خودکار حرفه‌ای (پایدار) ==================
 def background_sender():
-    log_to_admin("⏰ background_sender شروع شد")
-    set_meta("last_send_ts", 0)
+    log_to_admin("⏰ ارسال خودکار فعال شد")
+
     while True:
         last_ts = float(get_meta("last_send_ts", 0))
         now = time.time()
 
         if now - last_ts < SEND_INTERVAL:
-            time.sleep(15)
+            time.sleep(20)
             continue
 
-        # زمان ارسال رسیده
         for cid in list(active_users):
             try:
                 bot.send_message(cid, get_next_message(cid))
@@ -226,7 +224,6 @@ def background_sender():
         set_meta("last_send_ts", now)
         log_to_admin("💌 پیام عاشقانه ارسال شد")
 
-# فقط یک Thread
 threading.Thread(target=background_sender, daemon=True).start()
 
 # ================== گرفتن file_id ویس (فقط ادمین) ==================
@@ -276,7 +273,6 @@ def all_messages(m):
         ban_user(m)
         return
 
-    # مرحله مریمی
     if cid not in active_users:
         if cid not in waiting_for_maryam:
             waiting_for_maryam.add(cid)
