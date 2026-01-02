@@ -28,6 +28,9 @@ ALLOWED_USERS = {
 DB_PATH = "/data/users.db"
 AUTO_SEND_ENABLED = True
 
+# 🔴 حتماً file_id واقعی ویس بوس رو اینجا بذار
+KISS_VOICE_ID = "PUT_REAL_VOICE_FILE_ID_HERE"
+
 # ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cur = conn.cursor()
@@ -53,65 +56,59 @@ waiting_for_maryam = set()
 def log_to_admin(action, m, extra=None):
     try:
         u = m.from_user
-        txt = (
+        msg = (
             f"📌 {action}\n"
             f"👤 {u.first_name} (@{u.username if u.username else 'ندارد'})\n"
             f"🆔 {m.chat.id}"
         )
         if m.text:
-            txt += f"\n💬 {m.text}"
+            msg += f"\n💬 {m.text}"
         if extra:
-            txt += f"\nℹ️ {extra}"
-        bot.send_message(ADMIN_ID, txt)
+            msg += f"\nℹ️ {extra}"
+        bot.send_message(ADMIN_ID, msg)
     except:
         pass
 
 # ================== بن غیرمجاز ==================
-def ban_user(chat_id, m):
+def ban_user(m):
     log_to_admin("⛔️ بن کاربر غیرمجاز", m)
     try:
-        bot.block_user(chat_id)
+        bot.block_user(m.chat.id)
     except:
         pass
 
-# ================== پیام‌ها ==================
+# ================== پیام‌های عاشقانه ==================
 romantic_messages = [
     "مریم جونم، تو بهترین اتفاق زندگی منی. ❤️",
     "هر لحظه به فکرتم عشقم. 💕",
     "من خوشحالم که تورو دارم مریم، یادت نره هیچوقت.",
     "مریم، تو دلیل لبخند منی.",
-    "مریم کوشولو، مثل یه بابا هواتو دارم، مثل داداش می‌تونی بهم تکیه کنی، مثل شوهر بهت توجه می‌کنم.",
     "مریم جونم، تو سقف رویای منی.",
     "قلبم واست میتپه مریم کوشولو.❤️",
-    "مریم، تو فردای منی.",
     "تو قشنگی مثل شکلایی که ابرا میسازن.",
-    "منو توییم هرچیم بشه.\nماباهمیم هرچیم بشه.\nمال همیم هرچیم بشه.\nحتی اون آسمون از اون بالا بیاد زمین.",
     "دنیارو نمیخوام اگه تو نباشی.",
     "نگاه تو روشن شبای بی‌چراغم.",
-    "یادت نره ما باهمیم:)",
     "قفل چشاتم.",
     "دلم میخوادت.",
     "دوستت دارم تنها ماهِ آسمونِ قلبم:)",
-    "میقام تورو بگیلم."
 ]
 
-# ================== سیستم ضدتکرار ==================
+# ================== ضدتکرار ==================
 MESSAGE_MEMORY_SIZE = 5
-user_message_history = {}
-user_message_pool = {}
+user_history = {}
+user_pool = {}
 
 def get_next_message(chat_id):
-    if chat_id not in user_message_history:
-        user_message_history[chat_id] = deque(maxlen=MESSAGE_MEMORY_SIZE)
+    if chat_id not in user_history:
+        user_history[chat_id] = deque(maxlen=MESSAGE_MEMORY_SIZE)
 
-    history = user_message_history[chat_id]
-
-    if chat_id not in user_message_pool or not user_message_pool[chat_id]:
+    if chat_id not in user_pool or not user_pool[chat_id]:
         pool = romantic_messages.copy()
         random.shuffle(pool)
-        user_message_pool[chat_id] = pool
+        user_pool[chat_id] = pool
 
-    pool = user_message_pool[chat_id]
+    history = user_history[chat_id]
+    pool = user_pool[chat_id]
 
     for _ in range(len(pool)):
         msg = pool.pop(0)
@@ -124,23 +121,11 @@ def get_next_message(chat_id):
     history.append(msg)
     return msg
 
-# ================== تشخیص بوس (قطعی) ==================
-def is_kiss_message(text: str) -> bool:
+# ================== تشخیص بوس ==================
+def is_kiss(text: str) -> bool:
     if not text:
         return False
-
-    patterns = [
-        r"^بوس",
-        r"بوسه",
-        r"بوسی",
-        r"[😘😗😙😚💋]"
-    ]
-
-    for p in patterns:
-        if re.search(p, text):
-            return True
-
-    return False
+    return bool(re.search(r"(بوس|بوسی|بوسه|😘|😗|😙|😚|💋)", text))
 
 # ================== کیبورد ==================
 LOVE_KEYBOARD = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
@@ -158,9 +143,9 @@ def background_sender():
                 time.sleep(30)
                 continue
 
-            for chat_id in list(active_users):
+            for cid in list(active_users):
                 try:
-                    bot.send_message(chat_id, get_next_message(chat_id))
+                    bot.send_message(cid, get_next_message(cid))
                     time.sleep(1)
                 except:
                     pass
@@ -175,7 +160,7 @@ threading.Thread(target=background_sender, daemon=True).start()
 @bot.message_handler(commands=["start"])
 def start_cmd(m):
     if m.chat.id not in ALLOWED_USERS:
-        ban_user(m.chat.id, m)
+        ban_user(m)
         return
 
     log_to_admin("▶️ /start", m)
@@ -190,7 +175,7 @@ def start_cmd(m):
 @bot.message_handler(commands=["stop"])
 def stop_cmd(m):
     if m.chat.id not in ALLOWED_USERS:
-        ban_user(m.chat.id, m)
+        ban_user(m)
         return
 
     log_to_admin("⏹ /stop", m)
@@ -199,84 +184,69 @@ def stop_cmd(m):
     remove_active_user(m.chat.id)
     waiting_for_maryam.discard(m.chat.id)
 
-    bot.send_message(
-        m.chat.id,
-        "باشه عزیزم.\nهر وقت دوباره دلت خواست، /start رو بزن 💜"
-    )
+    bot.send_message(m.chat.id, "باشه عزیزم.\nهر وقت دلت خواست /start رو بزن 💜")
 
 # ================== پیام‌ها ==================
 @bot.message_handler(func=lambda m: True)
 def all_messages(m):
-    chat_id = m.chat.id
+    cid = m.chat.id
     text_raw = m.text or ""
     text = text_raw.lower()
 
-    if chat_id not in ALLOWED_USERS:
-        ban_user(chat_id, m)
+    if cid not in ALLOWED_USERS:
+        ban_user(m)
         return
 
-    # مرحله تأیید مریمی
-    if chat_id not in active_users:
-        if chat_id not in waiting_for_maryam:
-            waiting_for_maryam.add(chat_id)
-            log_to_admin("❓ سؤال مریمی", m)
-            bot.send_message(chat_id, "آیا تو مریمی؟")
+    # مرحله مریمی
+    if cid not in active_users:
+        if cid not in waiting_for_maryam:
+            waiting_for_maryam.add(cid)
+            bot.send_message(cid, "آیا تو مریمی؟")
             return
 
         if any(x in text for x in ["آره", "اره", "بله", "مریم", "هوم", "هستم"]):
-            waiting_for_maryam.discard(chat_id)
-            active_users.add(chat_id)
-            add_active_user(chat_id)
-
-            log_to_admin("✅ تأیید مریمی", m)
+            waiting_for_maryam.discard(cid)
+            active_users.add(cid)
+            add_active_user(cid)
 
             bot.send_message(
-                chat_id,
+                cid,
                 "از آشنایی باهات خوشبختم، سازنده‌م خیلی تعریفتو کرده پیشم و گفته که تو همه‌چیزشی، "
-                "خیلی عجیب عاشقته سازنده‌م، بهت حسودی میکنم. بهم گفته بهت بگم این باتو ساخته "
-                "تا یه بخش کوچیکی از علاقه‌ش بهتو ببینی."
+                "خیلی عجیب عاشقته سازنده‌م."
             )
 
             time.sleep(2)
 
             bot.send_message(
-                chat_id,
+                cid,
                 "<b>شلام همسر عزیزتر از جونم، این برای توعه.💗</b>\n\n"
-                "این بات واست پیام میفرسته تا ببینی امیرعلی همیشه حواسش بهت هست واقعنی حتی تو خوابت.\n"
-                "هر وقت خواستی تموم بچه، /stop رو بزن 💜",
+                "این بات واست پیام میفرسته تا ببینی امیرعلی همیشه حواسش بهت هست.\n"
+                "هر وقت خواستی /stop رو بزن 💜",
                 reply_markup=LOVE_KEYBOARD
             )
 
-            bot.send_message(chat_id, get_next_message(chat_id))
+            bot.send_message(cid, get_next_message(cid))
             return
         else:
-            log_to_admin("❌ پاسخ منفی مریمی", m)
-            bot.send_message(chat_id, "آیا تو مریمی؟")
+            bot.send_message(cid, "آیا تو مریمی؟")
             return
 
-    # رفتار عادی
-    log_to_admin("💬 پیام کاربر", m)
+    # ================== پاسخ‌های متنی (همین‌جایی که گفتی) ==================
 
-    if is_kiss_message(text_raw):
+    # 💋 بوس دقیقاً اینجاست
+    if text_raw.strip() == "بوس بوسیییی" or is_kiss(text_raw):
         try:
-            bot.send_voice(
-                chat_id,
-                "AwACAgQAAxkBAAEZzXVpVMMB1XPD8Kmc-jxLGEXT9SMfGAACZB0AAvLHqVJMkAepzgWEwDgE"
-            )
-            log_to_admin("💋 ویس بوس ارسال شد", m)
+            bot.send_voice(cid, KISS_VOICE_ID)
+            log_to_admin("💋 بوس", m)
         except Exception as e:
-            log_to_admin("❌ خطا در ویس بوس", m, str(e))
-            
-        return    
+            log_to_admin("❌ خطا در بوس", m, str(e))
+        return
 
     elif "دلم واست تنگولیده" in text:
-        bot.reply_to(
-            m,
-            f"{get_next_message(chat_id)}\n\nدل منم هر لحظه برات تنگولیده نینیم.❤️"
-        )
+        bot.reply_to(m, f"{get_next_message(cid)}\n\nدل منم هر لحظه برات تنگولیده ❤️")
 
     elif "دوستت دارم" in text or "عشقم" in text:
-        bot.reply_to(m, "همه چیز منییی؛ عاچقتم و دوستت میدالم.")
+        bot.reply_to(m, "همه چیز منییی؛ عاچقتم ❤️")
 
     else:
         bot.reply_to(m, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
