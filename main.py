@@ -1,92 +1,42 @@
 import os
-import telebot
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton
-import threading
 import time
 import random
 import sqlite3
+import threading
 import re
 from collections import deque
 
+import telebot
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton
+from openai import OpenAI
+
 # ================== تنظیمات پایه ==================
-TOKEN = os.getenv("BOT_TOKEN")
-if not TOKEN:
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN تنظیم نشده")
 
-bot = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=True)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    raise RuntimeError("OPENAI_API_KEY تنظیم نشده")
+
+bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML", threaded=True)
+ai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 ADMIN_ID = 6120112176
 MARYAM_CHAT_ID = 2045238581
 TEST_ID = 8101517449
-
 ALLOWED_USERS = {ADMIN_ID, MARYAM_CHAT_ID, TEST_ID}
 
 DB_PATH = "/data/users.db"
 SEND_INTERVAL = 3600  # هر ۱ ساعت
 
 # ================== ویس‌های بوس ==================
+# file_idها رو اینجا بذار
 KISS_VOICE_IDS = [
-    "AwACAgQAAxkBAAIHomlXo-sRouDBpOTOnhSqmGzm4O5ZAAJiHQAC8sepUq6tTyaCrU-UOAQ",
-    "AwACAgQAAxkBAAIHoWlXo-sgPTbIwYzlZpDENnVu5aPgAAJsHAACSEaBUtd0VP95xXJwOAQ",
-    "AwACAgQAAxkBAAIHo2lXo-sdpuOC5w6I9Arw6DSd2S70AAJjHQAC8sepUqvrlfUXoRxgOAQ",
-    "AwACAgQAAxkBAAIHpGlXo-uoLJD3gCI4JqD9dYrP8-ozAAJkHQAC8sepUlliwAEbMfd0OAQ",
-    "AwACAgQAAxkBAAIHpWlXo-uqxH-jJQbSyMncAAEvFSXPPQACZR0AAvLHqVLe4eMhtHi6LDgE"
+    # "AwACAgQAAxkBAA...",
+    # "AwACAgQAAxkBAA...",
 ]
-
-KISS_VOICE_MEMORY = 3
-
-# ================== لاگ ادمین (بهینه) ==================
-LOG_LEVELS = {
-    "INFO": True,      # start / stop / سیستم
-    "ACTION": True,    # بوس، تأیید مریمی
-    "DEBUG": False,    # پیام‌های عادی (خاموش)
-}
-
-ADMIN_LOG_COOLDOWN = 30  # ثانیه
-_last_admin_logs = {}
-
-admin_stats = {
-    "start": 0,
-    "stop": 0,
-    "kiss": 0,
-    "errors": 0,
-}
-
-def log_to_admin(level, title, m=None, extra=None):
-    if not LOG_LEVELS.get(level, False):
-        return
-
-    now = time.time()
-    key = f"{level}:{title}"
-
-    if key in _last_admin_logs and now - _last_admin_logs[key] < ADMIN_LOG_COOLDOWN:
-        return
-
-    _last_admin_logs[key] = now
-
-    try:
-        msg = f"📌 {title}"
-
-        if m:
-            u = m.from_user
-            msg += (
-                f"\n👤 {u.first_name} (@{u.username if u.username else '—'})"
-                f"\n🆔 {m.chat.id}"
-            )
-
-            # 👇 این بخش جدید
-            if m.text:
-                msg += f"\n پیام: {m.text}"
-            else:
-                msg += f"\n پیام: [غیر متنی]"
-
-        if extra:
-            msg += f"\n {extra}"
-
-        bot.send_message(ADMIN_ID, msg)
-    except:
-        pass
-
+KISS_VOICE_MEMORY = 3  # چند تای آخر تکرار نشه
 
 # ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -104,7 +54,6 @@ CREATE TABLE IF NOT EXISTS meta (
     value TEXT
 )
 """)
-
 conn.commit()
 
 def load_active_users():
@@ -134,29 +83,32 @@ def set_meta(key, value):
 active_users = load_active_users()
 waiting_for_maryam = set()
 
-# ================== بن غیرمجاز ==================
-def ban_user(m):
-    admin_stats["errors"] += 1
-    log_to_admin("INFO", "⛔️ بن کاربر غیرمجاز", m)
-    try:
-        bot.block_user(m.chat.id)
-    except:
-        pass
-
-# ================== پیام‌های عاشقانه ==================
+# ================== پیام‌های عاشقانه (متن‌های اصلی تو) ==================
 romantic_messages = [
     "مریم جونم، تو بهترین اتفاق زندگی منی. ❤️",
     "هر لحظه به فکرتم عشقم. 💕",
     "من خوشحالم که تورو دارم مریم، یادت نره هیچوقت.",
     "مریم، تو دلیل لبخند منی.",
+    "مریم کوشولو، مثل یه بابا هواتو دارم، مثل داداش می‌تونی بهم تکیه کنی، مثل شوهر بهت توجه می‌کنم.",
     "مریم جونم، تو سقف رویای منی.",
     "قلبم واست میتپه مریم کوشولو.❤️",
+    "مریم، تو فردای منی.",
     "تو قشنگی مثل شکلایی که ابرا میسازن.",
+    "منو توییم هرچیم بشه.\n ماباهمیم هرچیم بشه.\n مال همیم هرچیم بشه.\n حتی اون آسمون از اون بالا بیاد زمین.",
     "دنیارو نمیخوام اگه تو نباشی.",
+    "فکرشم نکن، خسته شم ازت.\nفکرشم نکن دست بکشم ازت.\nفکرشم نکن تورو نبینمت یه‌روز.\nمن به عشق دیدنت نفس میکشم فقط.",
     "نگاه تو روشن شبای بی‌چراغم.",
+    "مریم و امیرعلی قراره یه خونه داشته باشن که فقط مال اون دو تا باشه:)",
+    "یادت نره ما باهمیم:)",
     "قفل چشاتم.",
+    "چشمات بوسیدنیه، گردنت بوسیدنیه، دستات بوسیدنیه، عطر تنت بوسیدنیه، نفسات بوسیدنیه، مهربونیِ تهِ قلبت بوسیدنیه، موهات بوسیدنیه. کلا تو بوسیدنی‌ترین موجودِ این کره خاکی‌ای.",
+    "من سر تو حسود نیستم ، سرتو یه خودخواه روانی سادیسمی از خود راضیم که می‌خوام فقط مال من باشی.",
     "دلم میخوادت.",
+    "اگه حس کردی هرجایی داری کم میاری یا هرچی، زودی بدو بیا پیشم چون من پشتتم.",
+    "تورو از همه‌ی همه‌ی دنیا بیشتر دوستت دالم نفس بابایی.",
     "دوستت دارم تنها ماهِ آسمونِ قلبم:)",
+    "باهم این سختیا رو تحمل میکنیم عزیزم، دنیا بغل های زیادی رو بهمون بدهکاره.",
+    "میقام تورو بگیلم."
 ]
 
 # ================== ضدتکرار پیام ==================
@@ -214,7 +166,7 @@ def get_next_kiss_voice(cid):
     hist.append(vid)
     return vid
 
-# ================== تشخیص بوس / ماچ ==================
+# ================== تشخیص بوس / ماچ (کلمه‌ای + کشیده) ==================
 KISS_PATTERNS = (
     re.compile(r"^بو+س+$"),
     re.compile(r"^ما+چ+$"),
@@ -238,10 +190,8 @@ LOVE_KEYBOARD.add(
     KeyboardButton("بوس بوسیییی")
 )
 
-# ================== ارسال خودکار ساعتی (پایدار) ==================
+# ================== ارسال خودکار پایدار (Persisted) ==================
 def background_sender():
-    log_to_admin("INFO", "⏰ ارسال خودکار فعال شد")
-
     while True:
         last_ts = float(get_meta("last_send_ts", 0))
         now = time.time()
@@ -255,32 +205,11 @@ def background_sender():
                 bot.send_message(cid, get_next_message(cid))
                 time.sleep(1)
             except:
-                admin_stats["errors"] += 1
+                pass
 
         set_meta("last_send_ts", now)
-        log_to_admin("INFO", "💌 پیام عاشقانه ارسال شد")
 
 threading.Thread(target=background_sender, daemon=True).start()
-
-# ================== گزارش خلاصه ادمین ==================
-def admin_summary():
-    while True:
-        time.sleep(3600)
-        try:
-            bot.send_message(
-                ADMIN_ID,
-                f"🧾 گزارش خلاصه\n"
-                f"▶️ start: {admin_stats['start']}\n"
-                f"⏹ stop: {admin_stats['stop']}\n"
-                f"💋 بوس: {admin_stats['kiss']}\n"
-                f"❌ خطا: {admin_stats['errors']}"
-            )
-            for k in admin_stats:
-                admin_stats[k] = 0
-        except:
-            pass
-
-threading.Thread(target=admin_summary, daemon=True).start()
 
 # ================== گرفتن file_id ویس (فقط ادمین) ==================
 @bot.message_handler(content_types=["voice"])
@@ -292,33 +221,56 @@ def get_voice_id(m):
 @bot.message_handler(commands=["start"])
 def start_cmd(m):
     if m.chat.id not in ALLOWED_USERS:
-        ban_user(m)
         return
-
-    admin_stats["start"] += 1
-    log_to_admin("INFO", "/start", m)
-
     active_users.discard(m.chat.id)
     remove_active_user(m.chat.id)
     waiting_for_maryam.add(m.chat.id)
-
     bot.send_message(m.chat.id, "آیا تو مریمی؟")
 
 # ================== /stop ==================
 @bot.message_handler(commands=["stop"])
 def stop_cmd(m):
     if m.chat.id not in ALLOWED_USERS:
-        ban_user(m)
         return
-
-    admin_stats["stop"] += 1
-    log_to_admin("INFO", "/stop", m)
-
     active_users.discard(m.chat.id)
     remove_active_user(m.chat.id)
     waiting_for_maryam.discard(m.chat.id)
-
     bot.send_message(m.chat.id, "باشه عزیزم.\nهر وقت دلت خواست /start رو بزن 💜")
+
+# ================== AI: حافظه مکالمه (۱۰ پیام) ==================
+AI_MEMORY_SIZE = 10
+ai_memory = {}  # chat_id -> deque
+
+SYSTEM_PROMPT = (
+    "تو یک بات عاشقانه، صمیمی و وفاداری. "
+    "لحن تو گرم، آرام، احساسی و کاملاً انسانی است. "
+    "از لحن خشک یا رسمی استفاده نکن. "
+    "خیلی کوتاه یا خیلی طولانی جواب نده. "
+    "مهربان، امن و قابل اعتماد باش."
+)
+
+def ai_reply(chat_id: int, user_text: str) -> str:
+    if chat_id not in ai_memory:
+        ai_memory[chat_id] = deque(maxlen=AI_MEMORY_SIZE)
+
+    memory = ai_memory[chat_id]
+    memory.append({"role": "user", "content": user_text})
+
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages.extend(memory)
+
+    try:
+        resp = ai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            temperature=0.8,
+            max_tokens=140
+        )
+        reply = resp.choices[0].message.content.strip()
+        memory.append({"role": "assistant", "content": reply})
+        return reply
+    except:
+        return "الان یه لحظه ذهنم شلوغه… ولی کنارتم 🤍"
 
 # ================== پیام‌ها ==================
 @bot.message_handler(func=lambda m: True)
@@ -328,7 +280,6 @@ def all_messages(m):
     text = text_raw.lower()
 
     if cid not in ALLOWED_USERS:
-        ban_user(m)
         return
 
     if cid not in active_users:
@@ -342,17 +293,16 @@ def all_messages(m):
             active_users.add(cid)
             add_active_user(cid)
 
-            log_to_admin("ACTION", "✅ تأیید مریمی", m)
-
             bot.send_message(
                 cid,
-                "از آشنایی باهات خوشبختم، سازنده‌م خیلی تعریفتو کرده پیشم و گفته که تو همه‌چیزشی."
+                "از آشنایی باهات خوشبختم، سازنده‌م خیلی تعریفتو کرده پیشم و گفته که تو همه‌چیزشی، خیلی عجیب عاشقته سازنده‌م، بهت حسودی میکنم. بهم گفته بهت بگم این باتو ساخته تا یه بخش کوچیکی از علاقه‌ش بهتو ببینی."
             )
 
             bot.send_message(
                 cid,
                 "<b>شلام همسر عزیزتر از جونم، این برای توعه.💗</b>\n\n"
-                "هر وقت خواستی /stop رو بزن 💜",
+                "این بات واست پیام میفرسته تا ببینی امیرعلی همیشه حواسش بهت هست واقعنی حتی تو خوابت.\n"
+                "هر وقت خواستی تموم بچه، /stop رو بزن 💜",
                 reply_markup=LOVE_KEYBOARD
             )
 
@@ -362,36 +312,26 @@ def all_messages(m):
             bot.send_message(cid, "آیا تو مریمی؟")
             return
 
-    # 💋 بوس / ماچ
+    # 💋 بوس / ماچ (ویس رندوم + ریپلای)
     if text_raw.strip() == "بوس بوسیییی" or is_kiss(text_raw):
-        if not KISS_VOICE_IDS:
-            bot.reply_to(m, "اول باید ویس بوس‌ها رو تنظیم کنی 😅")
-            return
-        try:
+        if KISS_VOICE_IDS:
             vid = get_next_kiss_voice(cid)
             bot.send_voice(cid, vid, reply_to_message_id=m.message_id)
-            admin_stats["kiss"] += 1
-            log_to_admin("ACTION", "💋 بوس / ماچ", m)
-        except Exception as e:
-            admin_stats["errors"] += 1
-            log_to_admin("INFO", "❌ خطا در بوس", m, str(e))
         return
 
+    # پاسخ‌های دستی
     if "دلم واست تنگولیده" in text:
-        bot.reply_to(m, f"{get_next_message(cid)}\n\nدل منم هر لحظه برات تنگولیده ❤️")
+        bot.reply_to(m, f"{get_next_message(cid)}\n\nدل منم هر لحظه برات تنگولیده نینیم.❤️")
         return
 
     if "دوستت دارم" in text or "عشقم" in text:
-        bot.reply_to(m, "همه چیز منییی؛ عاچقتم ❤️")
+        bot.reply_to(m, "همه چیز منییی؛ عاچقتم و دوستت میدالم.")
         return
 
-    bot.reply_to(m, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
+    # پاسخ هوشمند AI
+    ai_text = ai_reply(cid, text_raw)
+    bot.reply_to(m, ai_text)
 
-# ================== polling پایدار ==================
+# ================== polling ==================
 bot.delete_webhook(drop_pending_updates=True)
-
-while True:
-    try:
-        bot.infinity_polling(timeout=60, long_polling_timeout=60, skip_pending=True)
-    except Exception as e:
-        time.sleep(5)
+bot.infinity_polling(timeout=60, long_polling_timeout=60, skip_pending=True)
