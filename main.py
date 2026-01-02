@@ -16,7 +16,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN تنظیم نشده")
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_KEY_REAL")
 if not OPENAI_API_KEY:
     raise RuntimeError("OPENAI_API_KEY تنظیم نشده")
 
