@@ -186,6 +186,12 @@ def stop_cmd(m):
 
     bot.send_message(m.chat.id, "باشه عزیزم.\nهر وقت دلت خواست /start رو بزن 💜")
 
+@bot.message_handler(content_types=['voice'])
+def get_voice_id(m):
+    if m.from_user.id == ADMIN_ID:
+        bot.send_message(ADMIN_ID, m.voice.file_id)
+
+
 # ================== پیام‌ها ==================
 @bot.message_handler(func=lambda m: True)
 def all_messages(m):
