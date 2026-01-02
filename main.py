@@ -123,7 +123,7 @@ def background_sender():
                     time.sleep(1)
                 except:
                     pass
-            time.sleep(3600)
+            time.sleep(10)
         except:
             time.sleep(60)
 
