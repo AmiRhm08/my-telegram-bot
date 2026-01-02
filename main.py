@@ -5,8 +5,9 @@ import threading
 import time
 import random
 import sqlite3
+from datetime import datetime
 
-# ================== تنظیمات ==================
+# ================== تنظیمات اصلی ==================
 TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
     raise ValueError("BOT_TOKEN تنظیم نشده")
@@ -19,7 +20,6 @@ TEST_ID = 8101517449
 ALLOWED_USERS = {MARYAM_CHAT_ID, ADMIN_ID, TEST_ID}
 
 DB_PATH = "/data/users.db"
-
 
 # ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -44,7 +44,18 @@ def remove_active_user(chat_id):
     cur.execute("DELETE FROM active_users WHERE chat_id = ?", (chat_id,))
     conn.commit()
 
-# ================== داده‌ها ==================
+active_users = load_active_users()
+maryam_waiting = set()
+last_sent_index = {}
+
+# ================== لاگ ادمین ==================
+def log_to_admin(text):
+    try:
+        bot.send_message(ADMIN_ID, text)
+    except:
+        pass
+
+# ================== پیام‌ها ==================
 romantic_messages = [
     "مریم جونم، تو بهترین اتفاق زندگی منی. ❤️",
     "هر لحظه به فکرتم عشقم. 💕",
@@ -72,11 +83,13 @@ romantic_messages = [
     "میقام تورو بگیلم."
 ]
 
-last_sent_index = {}
-maryam_waiting = set()
-
-active_users = load_active_users()
-print("کاربران لود شدند:", active_users)
+def get_next_message(chat_id):
+    last = last_sent_index.get(chat_id, -1)
+    idx = random.randint(0, len(romantic_messages) - 1)
+    while idx == last:
+        idx = random.randint(0, len(romantic_messages) - 1)
+    last_sent_index[chat_id] = idx
+    return romantic_messages[idx]
 
 # ================== کیبورد ==================
 LOVE_KEYBOARD = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
@@ -86,26 +99,19 @@ LOVE_KEYBOARD.add(
     KeyboardButton("بوس بوسیییی")
 )
 
-# ================== توابع ==================
-def get_next_message(chat_id):
-    last = last_sent_index.get(chat_id, -1)
-    idx = random.randint(0, len(romantic_messages) - 1)
-    while idx == last:
-        idx = random.randint(0, len(romantic_messages) - 1)
-    last_sent_index[chat_id] = idx
-    return romantic_messages[idx]
-
+# ================== ارسال ساعتی ==================
 def background_sender():
     while True:
         try:
             for chat_id in list(active_users):
                 try:
                     bot.send_message(chat_id, get_next_message(chat_id))
+                    time.sleep(1)
                 except Exception as e:
-                    print(f"خطا در ارسال به {chat_id}: {e}")
-            time.sleep(3600)  # هر ساعت
+                    print("Send error:", e)
+            time.sleep(3600)
         except Exception as e:
-            print(f"خطای کلی لوپ: {e}")
+            print("Background loop error:", e)
             time.sleep(60)
 
 threading.Thread(target=background_sender, daemon=True).start()
@@ -113,15 +119,18 @@ threading.Thread(target=background_sender, daemon=True).start()
 # ================== هندلرها ==================
 @bot.message_handler(commands=["start"])
 def start(message):
+    user = message.from_user
     chat_id = message.chat.id
-    name = message.from_user.first_name or "کاربر"
+
+    log_to_admin(
+        f"🚀 /start\n"
+        f"👤 {user.first_name}\n"
+        f"👥 @{user.username if user.username else 'ندارد'}\n"
+        f"🆔 {chat_id}"
+    )
 
     if chat_id not in ALLOWED_USERS:
         bot.send_message(chat_id, "این بات واسه‌ی تو نیست مزاحم نشو.")
-        try:
-            bot.send_message(ADMIN_ID, f"کسی استارت زد!\nاسم: {name}\nchat_id: {chat_id}")
-        except:
-            pass
         return
 
     if chat_id == MARYAM_CHAT_ID:
@@ -145,50 +154,34 @@ def start(message):
 def stop(message):
     chat_id = message.chat.id
     active_users.discard(chat_id)
-    maryam_waiting.discard(chat_id)
-    last_sent_index.pop(chat_id, None)
     remove_active_user(chat_id)
     bot.reply_to(message, "دلم برات تنگ می‌شه مریم جونم.\nهر وقت دلت خواست دوباره /start بزن 😭💘")
 
-@bot.message_handler(commands=['msg'])
-def admin_message(message):
+@bot.message_handler(commands=["msg"])
+def admin_msg(message):
     if message.from_user.id != ADMIN_ID:
         return
-
     try:
-        parts = message.text.split(maxsplit=2)
-        if len(parts) < 3:
-            bot.reply_to(
-                message,
-                "استفاده: /msg <chat_id> متن پیام\nمثال: /msg 987654321 سلام نفس من ❤️"
-            )
-            return
-
-        target_chat_id = int(parts[1])
-        text = parts[2]
-
-        if target_chat_id not in ALLOWED_USERS:
-            bot.reply_to(message, "فقط می‌تونی به مریم جونم یا خودت پیام بدی!")
-            return
-
-        bot.send_message(
-            target_chat_id,
-            text + "\n\n— از امیرعلی ❤️"
-        )
-
-        bot.reply_to(
-            message,
-            f"پیام با موفقیت فرستاده شد به chat_id: {target_chat_id}\n\n{text}"
-        )
-
-    except ValueError:
-        bot.reply_to(message, "chat_id باید عدد باشه!")
-    except Exception as e:
-        bot.reply_to(message, f"خطا در ارسال: {str(e)}")
+        _, cid, text = message.text.split(maxsplit=2)
+        cid = int(cid)
+        bot.send_message(cid, text + "\n\n— از امیرعلی ❤️")
+    except:
+        bot.reply_to(message, "فرمت: /msg chat_id متن")
 
 @bot.message_handler(func=lambda m: True)
 def all_messages(message):
+    user = message.from_user
     chat_id = message.chat.id
+    text = message.text or "[غیر متنی]"
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    log_to_admin(
+        f"📩 پیام جدید\n"
+        f"⏰ {now}\n"
+        f"👤 {user.first_name} (@{user.username if user.username else 'ندارد'})\n"
+        f"🆔 {chat_id}\n"
+        f"💬 {text}"
+    )
 
     if chat_id not in ALLOWED_USERS:
         bot.send_message(chat_id, "این بات واسه‌ی تو نیست مزاحم نشو.")
@@ -205,34 +198,25 @@ def all_messages(message):
         maryam_waiting.remove(chat_id)
         return
 
-    text = (message.text or "").lower()
-
-    if "بوس" in text:
+    t = text.lower()
+    if "بوس" in t:
         try:
             bot.send_voice(chat_id, "AwACAgQAAxkBAAEZzXVpVMMB1XPD8Kmc-jxLGEXT9SMfGAACZB0AAvLHqVJMkAepzgWEwDgE")
         except:
             bot.reply_to(message, "بوس بهت عزیزدلم.")
-
-    elif "دلم واست تنگولیده" in text:
+    elif "دلم واست تنگولیده" in t:
         bot.reply_to(message, f"{get_next_message(chat_id)}\n\nدل منم هر لحظه برات تنگولیده نینیم.❤️")
-
-    elif "دوستت دارم" in text or "عشقم" in text:
+    elif "دوستت دارم" in t or "عشقم" in t:
         bot.reply_to(message, "همه چیز منییی؛ عاچقتم و دوستت میدالم.")
-
     else:
         bot.reply_to(message, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
 
-print("بات عاشقانه با ذخیره کاربر روشن شد ❤️")
-
+# ================== polling پایدار ==================
 bot.delete_webhook(drop_pending_updates=True)
+
 while True:
     try:
-        bot.infinity_polling(
-            timeout=60,
-            long_polling_timeout=60,
-            skip_pending=True
-        )
+        bot.infinity_polling(timeout=60, long_polling_timeout=60, skip_pending=True)
     except Exception as e:
         print("Polling crashed:", e)
         time.sleep(5)
-
