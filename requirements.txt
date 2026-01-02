@@ -1,2 +1,3 @@
 pip>=23.1
 pyTelegramBotAPI
+openai>=1.0.0
