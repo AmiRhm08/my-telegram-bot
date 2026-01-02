@@ -5,7 +5,6 @@ import threading
 import time
 import random
 import sqlite3
-from datetime import datetime
 
 # ================== تنظیمات اصلی ==================
 TOKEN = os.getenv("BOT_TOKEN")
@@ -14,11 +13,10 @@ if not TOKEN:
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
-ADMIN_ID = 6120112176          # فقط ادمین
+ADMIN_ID = 6120112176
 MARYAM_CHAT_ID = 2045238581
 TEST_ID = 8101517449
 
-# فقط این آیدی‌ها اجازه دارن با بات حرف بزنن
 ALLOWED_USERS = {
     ADMIN_ID,
     MARYAM_CHAT_ID,
@@ -31,11 +29,7 @@ AUTO_SEND_ENABLED = True
 # ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cur = conn.cursor()
-cur.execute("""
-CREATE TABLE IF NOT EXISTS active_users (
-    chat_id INTEGER PRIMARY KEY
-)
-""")
+cur.execute("CREATE TABLE IF NOT EXISTS active_users (chat_id INTEGER PRIMARY KEY)")
 conn.commit()
 
 def load_active_users():
@@ -61,7 +55,7 @@ def log_to_admin(text):
     except:
         pass
 
-# ================== بن کاربر غیرمجاز ==================
+# ================== بن غیرمجاز ==================
 def ban_user(chat_id, user):
     log_to_admin(
         f"⛔️ کاربر غیرمجاز بن شد\n"
@@ -74,7 +68,7 @@ def ban_user(chat_id, user):
     except:
         pass
 
-# ================== پیام‌های عاشقانه ==================
+# ================== پیام‌ها ==================
 romantic_messages = [
     "مریم جونم، تو بهترین اتفاق زندگی منی. ❤️",
     "هر لحظه به فکرتم عشقم. 💕",
@@ -118,7 +112,7 @@ LOVE_KEYBOARD.add(
     KeyboardButton("بوس بوسیییی")
 )
 
-# ================== ارسال خودکار ساعتی ==================
+# ================== ارسال خودکار ==================
 def background_sender():
     while True:
         try:
@@ -139,7 +133,24 @@ def background_sender():
 
 threading.Thread(target=background_sender, daemon=True).start()
 
-# ================== دستورات ادمین (فقط ADMIN_ID) ==================
+# ================== /start (ریست شروع) ==================
+@bot.message_handler(commands=["start"])
+def restart_flow(m):
+    chat_id = m.chat.id
+    user = m.from_user
+
+    if chat_id not in ALLOWED_USERS:
+        ban_user(chat_id, user)
+        return
+
+    # ریست وضعیت
+    active_users.discard(chat_id)
+    remove_active_user(chat_id)
+    waiting_for_maryam.add(chat_id)
+
+    bot.send_message(chat_id, "آیا تو مریمی؟")
+
+# ================== دستورات ادمین ==================
 @bot.message_handler(commands=["status"])
 def status_cmd(m):
     if m.from_user.id != ADMIN_ID:
@@ -147,8 +158,8 @@ def status_cmd(m):
     bot.send_message(
         ADMIN_ID,
         f"📊 وضعیت بات\n"
-        f"🟢 ارسال خودکار: {'فعال' if AUTO_SEND_ENABLED else 'متوقف'}\n"
-        f"👥 کاربران فعال: {len(active_users)}"
+        f"👥 کاربران فعال: {len(active_users)}\n"
+        f"⏰ ارسال خودکار: {'فعال' if AUTO_SEND_ENABLED else 'متوقف'}"
     )
 
 @bot.message_handler(commands=["pause"])
@@ -171,9 +182,6 @@ def resume_cmd(m):
 def users_cmd(m):
     if m.from_user.id != ADMIN_ID:
         return
-    if not active_users:
-        bot.send_message(ADMIN_ID, "هیچ کاربر فعالی وجود ندارد.")
-        return
     bot.send_message(
         ADMIN_ID,
         "👥 کاربران فعال:\n" + "\n".join(str(u) for u in active_users)
@@ -195,7 +203,7 @@ def admin_msg(m):
     except:
         bot.reply_to(m, "فرمت: /msg chat_id متن")
 
-# ================== هندلر اصلی پیام‌ها ==================
+# ================== پیام‌ها ==================
 @bot.message_handler(func=lambda m: True)
 def all_messages(m):
     chat_id = m.chat.id
@@ -207,11 +215,11 @@ def all_messages(m):
         ban_user(chat_id, user)
         return
 
-    # هنوز فعال نشده → سؤال مریمی
+    # هنوز تأیید نشده
     if chat_id not in active_users:
         if chat_id not in waiting_for_maryam:
-            bot.send_message(chat_id, "آیا تو مریمی؟")
             waiting_for_maryam.add(chat_id)
+            bot.send_message(chat_id, "آیا تو مریمی؟")
             return
 
         if any(x in text for x in ["آره", "اره", "بله", "مریم", "هوم", "هستم"]):
@@ -232,7 +240,7 @@ def all_messages(m):
             bot.send_message(chat_id, "آیا تو مریمی؟")
             return
 
-    # رفتار عادی بعد از تأیید
+    # بعد از تأیید
     if "بوس" in text:
         try:
             bot.send_voice(chat_id, "AwACAgQAAxkBAAEZzXVpVMMB1XPD8Kmc-jxLGEXT9SMfGAACZB0AAvLHqVJMkAepzgWEwDgE")
