@@ -254,6 +254,7 @@ SYSTEM_PROMPT = (
 )
 
 def ai_reply(chat_id: int, user_text: str) -> str:
+    print("AI_REPLY_CALLED:", user_text)
     if chat_id not in ai_memory:
         ai_memory[chat_id] = deque(maxlen=AI_MEMORY_SIZE)
 
