@@ -28,8 +28,8 @@ ALLOWED_USERS = {
 DB_PATH = "/data/users.db"
 AUTO_SEND_ENABLED = True
 
-# 🔴 حتماً file_id واقعی ویس بوس رو اینجا بذار
-KISS_VOICE_ID = "PUT_REAL_VOICE_FILE_ID_HERE"
+# 🔴 بعد از گرفتن file_id اینو پر کن
+KISS_VOICE_ID = ""   # مثال: "AwACAgQAAxkBAA..."
 
 # ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -77,7 +77,7 @@ def ban_user(m):
     except:
         pass
 
-# ================== پیام‌های عاشقانه ==================
+# ================== پیام‌ها ==================
 romantic_messages = [
     "مریم جونم، تو بهترین اتفاق زندگی منی. ❤️",
     "هر لحظه به فکرتم عشقم. 💕",
@@ -156,6 +156,15 @@ def background_sender():
 
 threading.Thread(target=background_sender, daemon=True).start()
 
+# ================== گرفتن file_id ویس (فقط ادمین) ==================
+@bot.message_handler(content_types=['voice'])
+def get_voice_id(m):
+    if m.from_user.id == ADMIN_ID:
+        bot.send_message(
+            ADMIN_ID,
+            f"🎧 file_id ویس:\n{m.voice.file_id}"
+        )
+
 # ================== /start ==================
 @bot.message_handler(commands=["start"])
 def start_cmd(m):
@@ -185,12 +194,6 @@ def stop_cmd(m):
     waiting_for_maryam.discard(m.chat.id)
 
     bot.send_message(m.chat.id, "باشه عزیزم.\nهر وقت دلت خواست /start رو بزن 💜")
-
-@bot.message_handler(content_types=['voice'])
-def get_voice_id(m):
-    if m.from_user.id == ADMIN_ID:
-        bot.send_message(ADMIN_ID, m.voice.file_id)
-
 
 # ================== پیام‌ها ==================
 @bot.message_handler(func=lambda m: True)
@@ -237,10 +240,13 @@ def all_messages(m):
             bot.send_message(cid, "آیا تو مریمی؟")
             return
 
-    # ================== پاسخ‌های متنی (همین‌جایی که گفتی) ==================
+    # ================== پاسخ‌های متنی ==================
 
     # 💋 بوس دقیقاً اینجاست
     if text_raw.strip() == "بوس بوسیییی" or is_kiss(text_raw):
+        if not KISS_VOICE_ID:
+            bot.reply_to(m, "اول باید ویس بوس رو تنظیم کنی 😅")
+            return
         try:
             bot.send_voice(cid, KISS_VOICE_ID)
             log_to_admin("💋 بوس", m)
