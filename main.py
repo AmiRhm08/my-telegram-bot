@@ -17,7 +17,13 @@ bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 ADMIN_ID = 6120112176
 MARYAM_CHAT_ID = 2045238581
 TEST_ID = 8101517449
-ALLOWED_USERS = {MARYAM_CHAT_ID, ADMIN_ID, TEST_ID}
+
+# فقط اینا مجازن
+ALLOWED_USERS = {
+    ADMIN_ID,
+    MARYAM_CHAT_ID,
+    TEST_ID
+}
 
 DB_PATH = "/data/users.db"
 AUTO_SEND_ENABLED = True
@@ -44,7 +50,7 @@ active_users = load_active_users()
 maryam_waiting = set()
 last_sent_index = {}
 
-# ================== لاگ ==================
+# ================== لاگ ادمین ==================
 def log_to_admin(text):
     try:
         bot.send_message(ADMIN_ID, text)
@@ -52,6 +58,23 @@ def log_to_admin(text):
         pass
 
 daily_stats = {"messages": 0, "starts": 0}
+
+# ================== بن کاربر غیرمجاز ==================
+def ban_user(chat_id, user):
+    try:
+        log_to_admin(
+            f"⛔️ کاربر غیرمجاز بن شد\n"
+            f"👤 {user.first_name}\n"
+            f"👥 @{user.username if user.username else 'ندارد'}\n"
+            f"🆔 {chat_id}"
+        )
+    except:
+        pass
+
+    try:
+        bot.block_user(chat_id)
+    except:
+        pass
 
 # ================== پیام‌ها ==================
 romantic_messages = [
@@ -188,17 +211,15 @@ def admin_msg(m):
     except:
         bot.reply_to(m, "فرمت: /msg chat_id متن")
 
-# ================== استارت / استاپ ==================
+# ================== start / stop ==================
 @bot.message_handler(commands=["start"])
 def start(m):
     daily_stats["starts"] += 1
     user = m.from_user
     cid = m.chat.id
 
-    log_to_admin(f"🚀 /start\n👤 {user.first_name}\n🆔 {cid}")
-
     if cid not in ALLOWED_USERS:
-        bot.send_message(cid, "این بات واسه‌ی تو نیست مزاحم نشو.")
+        ban_user(cid, user)
         return
 
     if cid == MARYAM_CHAT_ID:
@@ -220,6 +241,9 @@ def start(m):
 @bot.message_handler(commands=["stop"])
 def stop(m):
     cid = m.chat.id
+    if cid not in ALLOWED_USERS:
+        ban_user(cid, m.from_user)
+        return
     active_users.discard(cid)
     remove_active_user(cid)
     bot.reply_to(m, "دلم برات تنگ می‌شه مریم جونم.\nهر وقت دلت خواست دوباره /start بزن 😭💘")
@@ -229,13 +253,14 @@ def stop(m):
 def all_messages(m):
     daily_stats["messages"] += 1
     cid = m.chat.id
+    user = m.from_user
     text = m.text or "[غیر متنی]"
 
-    log_to_admin(f"📩 پیام\n🆔 {cid}\n💬 {text}")
-
     if cid not in ALLOWED_USERS:
-        bot.send_message(cid, "این بات واسه‌ی تو نیست مزاحم نشو.")
+        ban_user(cid, user)
         return
+
+    log_to_admin(f"📩 پیام\n🆔 {cid}\n💬 {text}")
 
     if cid in maryam_waiting:
         bot.send_message(cid,
