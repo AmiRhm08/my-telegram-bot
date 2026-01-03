@@ -88,29 +88,29 @@ def log_to_admin(level, title, m=None, extra=None):
 # ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 
-def init_db():
-    with conn:
-        cur = conn.cursor()
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS active_users (
-            chat_id INTEGER PRIMARY KEY
-        )
-        """)
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS meta (
-            key TEXT PRIMARY KEY,
-            value TEXT
-        )
-        """)
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS replies (
-            admin_msg_id INTEGER PRIMARY KEY,
-            chat_id INTEGER,
-            user_msg_id INTEGER
-        )
-        """)
+cur = conn.cursor()
+cur.execute("""
+CREATE TABLE IF NOT EXISTS active_users (
+    chat_id INTEGER PRIMARY KEY
+)
+""")
 
-init_db()
+cur.execute("""
+CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value TEXT
+)
+""")
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS replies (
+    admin_msg_id INTEGER PRIMARY KEY,
+    chat_id INTEGER,
+    user_msg_id INTEGER
+)
+""")
+
+conn.commit()
 
 def load_active_users():
     with conn:
@@ -165,8 +165,8 @@ def get_reply_map(admin_msg_id):
         return None
 
 # ================== پاکسازی خودکار ریپلای‌های قدیمی ==================
-CLEANUP_INTERVAL = 24 * 3600  # هر ۲۴ ساعت
-REPLY_MAX_AGE = 30 * 24 * 3600  # ۳۰ روز
+CLEANUP_INTERVAL = 24 * 3600
+REPLY_MAX_AGE = 30 * 24 * 3600
 
 def cleanup_old_replies():
     while True:
@@ -211,7 +211,7 @@ romantic_messages = [
     "نگاه تو روشن شبای بی‌چراغم.",
     "قفل چشاتم.",
     "دلم میخوادت.",
-    "دوستت دارم تنها ماهِ آسمونِ قلبم:)"
+    "دوستت دارم تنها ماهِ آسمونِ قلبم:)",
 ]
 
 # ================== ضدتکرار پیام ==================
@@ -342,26 +342,27 @@ def all_messages(m):
     text_raw = m.text or ""
     text = text_raw.lower()
 
-    # 👑 ریپلای ادمین روی پیام فوروارد شده از کاربر
+    # 👑 پاسخ ریپلای‌دار ادمین
     if cid == ADMIN_ID and m.reply_to_message:
         data = get_reply_map(m.reply_to_message.message_id)
+
         if not data:
-            bot.reply_to(m, "❌ این پیام به کاربری وصل نیست یا پاک شده")
+            bot.reply_to(m, "❌ این پیام به کاربری وصل نیست")
             return
 
         try:
             bot.copy_message(
-                chat_id=data["chat_id"],
-                from_chat_id=ADMIN_ID,
-                message_id=m.message_id,
+                data["chat_id"],
+                ADMIN_ID,
+                m.message_id,
                 reply_to_message_id=data["reply_to"]
             )
-            log_to_admin("ACTION", "✅ ریپلای ادمین ارسال شد", m)
         except Exception as e:
-            log_to_admin("INFO", "❌ خطا در ریپلای ادمین", m, extra=str(e))
+            log_to_admin("INFO", "❌ خطا در ریپلای ادمین", extra=str(e))
+
         return
 
-    # فوروارد پیام کاربر به ادمین و ذخیره mapping
+    # 📩 فوروارد پیام کاربر برای ادمین + ثبت مپینگ
     if cid != ADMIN_ID:
         try:
             fwd = bot.forward_message(ADMIN_ID, cid, m.message_id)
@@ -370,9 +371,11 @@ def all_messages(m):
                 chat_id=cid,
                 user_msg_id=m.message_id
             )
+
         except:
             pass
 
+    # 🟢 فعال‌سازی کاربر
     if cid not in active_users:
         if cid not in waiting_for_maryam:
             waiting_for_maryam.add(cid)
@@ -404,6 +407,7 @@ def all_messages(m):
             bot.send_message(cid, "آیا تو مریمی؟")
             return
 
+    # 📩 پیام‌های پیش‌فرض
     if text_raw.strip() == "بوس بوسیییی" or is_kiss(text_raw):
         try:
             vid = get_next_kiss_voice(cid)
@@ -421,8 +425,6 @@ def all_messages(m):
     if "دوستت دارم" in text or "عشقم" in text:
         bot.reply_to(m, "همه چیز منییی؛ عاچقتم ❤️")
         return
-
-    bot.reply_to(m, "🤍❤️🩷💚🩵💜❤️‍🔥💞💕❣️💓💘💗💖")
 
 # ================== polling ==================
 bot.delete_webhook(drop_pending_updates=True)
