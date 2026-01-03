@@ -36,21 +36,10 @@ KISS_VOICE_IDS = [
 KISS_VOICE_MEMORY = 3
 
 # ================== لاگ ادمین ==================
-LOG_LEVELS = {
-    "INFO": True,
-    "ACTION": True,
-    "DEBUG": True,
-}
-
+LOG_LEVELS = {"INFO": True, "ACTION": True, "DEBUG": True}
 ADMIN_LOG_COOLDOWN = 10
 _last_admin_logs = {}
-
-admin_stats = {
-    "start": 0,
-    "stop": 0,
-    "kiss": 0,
-    "errors": 0,
-}
+admin_stats = {"start": 0, "stop": 0, "kiss": 0, "errors": 0}
 
 def log_to_admin(level, title, m=None, extra=None):
     if not LOG_LEVELS.get(level, False):
@@ -80,8 +69,8 @@ def log_to_admin(level, title, m=None, extra=None):
 
 # ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-
 cur = conn.cursor()
+
 cur.execute("""
 CREATE TABLE IF NOT EXISTS active_users (
     chat_id INTEGER PRIMARY KEY
@@ -198,7 +187,7 @@ romantic_messages = [
     "نگاه تو روشن شبای بی‌چراغم.",
     "قفل چشاتم.",
     "دلم میخوادت.",
-    "دوستت دارم تنها ماهِ آسمونِ قلبم:)",
+    "دوستت دارم تنها ماهِ آسمونِ قلبم:)"
 ]
 
 # ================== ضدتکرار پیام ==================
@@ -254,11 +243,14 @@ KISS_PATTERNS = (
     re.compile(r"^ما+چ+$"),
 )
 
-def is_kiss(word: str) -> bool:
-    clean = word.strip(".,!?؟،؛:()[]{}\"'")
-    for p in KISS_PATTERNS:
-        if p.fullmatch(clean):
-            return True
+def is_kiss(text: str) -> bool:
+    if not text:
+        return False
+    for word in text.strip().split():
+        clean = word.strip(".,!?؟،؛:()[]{}\"'")
+        for p in KISS_PATTERNS:
+            if p.fullmatch(clean):
+                return True
     return False
 
 # ================== کیبورد ==================
@@ -314,7 +306,7 @@ def all_messages(m):
     text_raw = m.text or ""
     text = text_raw.lower()
 
-    # 👑 پاسخ ریپلای‌دار ادمین
+    # 👑 پاسخ ریپلای‌دار ادمین (نسخه حرفه‌ای)
     if cid == ADMIN_ID and m.reply_to_message:
         data = get_reply_map(m.reply_to_message.message_id)
         if not data:
@@ -331,7 +323,7 @@ def all_messages(m):
             log_to_admin("INFO", "❌ خطا در ریپلای ادمین", extra=str(e))
         return
 
-    # 📩 فوروارد پیام کاربر برای ادمین + ثبت مپینگ
+    # 📩 فوروارد پیام کاربر برای ادمین + ثبت مپینگ (فقط یکبار)
     if cid != ADMIN_ID:
         try:
             fwd = bot.forward_message(ADMIN_ID, cid, m.message_id)
@@ -369,32 +361,22 @@ def all_messages(m):
             bot.send_message(cid, "آیا تو مریمی؟")
             return
 
-    # 🫂 بوس و ماچ
-    if "بوس" in text_raw.lower() or "بوووس" in text_raw.lower() or "ماچ" in text_raw.lower():
-        words = text_raw.split()
-        for word in words:
-            if is_kiss(word):
-                try:
-                    vid = get_next_kiss_voice(cid)
-                    bot.send_voice(cid, vid, reply_to_message_id=m.message_id)
-                    admin_stats["kiss"] += 1
-                except:
-                    admin_stats["errors"] += 1
-                return
-
-    if text_raw.strip() == "بوس بوسیییی":
+    # 👄 ارسال ویس بوس
+    if text_raw.strip() == "بوس بوسیییی" or is_kiss(text_raw):
         try:
             vid = get_next_kiss_voice(cid)
             bot.send_voice(cid, vid, reply_to_message_id=m.message_id)
             admin_stats["kiss"] += 1
+            log_to_admin("ACTION", "💋 بوس / ماچ", m)
         except:
             admin_stats["errors"] += 1
         return
 
-    # پاسخ‌های دکمه و عاشقانه
+    # پاسخ‌های پیشفرض با کیبورد
     if "دلم واست تنگولیده" in text:
         bot.reply_to(m, f"{get_next_message(cid)}\n\nدل منم هر لحظه برات تنگولیده ❤️")
         return
+
     if "دوستت دارم" in text or "عشقم" in text:
         bot.reply_to(m, "همه چیز منییی؛ عاچقتم ❤️")
         return
