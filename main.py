@@ -87,6 +87,7 @@ def log_to_admin(level, title, m=None, extra=None):
 
 # ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+
 cur = conn.cursor()
 
 cur.execute("""
@@ -150,7 +151,7 @@ def save_reply_map(admin_msg_id, chat_id, user_msg_id):
             "INSERT OR REPLACE INTO replies VALUES (?, ?, ?)",
             (admin_msg_id, chat_id, user_msg_id)
         )
-    set_meta(f"msg_ts:{admin_msg_id}", time.time())  # ثبت زمان پیام
+    set_meta(f"msg_ts:{admin_msg_id}", time.time())
 
 def get_reply_map(admin_msg_id):
     with conn:
@@ -165,8 +166,8 @@ def get_reply_map(admin_msg_id):
         return None
 
 # ================== پاکسازی خودکار ریپلای‌های قدیمی ==================
-CLEANUP_INTERVAL = 24 * 3600  # هر ۲۴ ساعت اجرا میشه
-REPLY_MAX_AGE = 30 * 24 * 3600  # ۳۰ روز
+CLEANUP_INTERVAL = 24 * 3600
+REPLY_MAX_AGE = 30 * 24 * 3600
 
 def cleanup_old_replies():
     while True:
@@ -211,7 +212,7 @@ def ban_user(m):
             try:
                 bot.delete_message(cid, msg_id)
             except:
-                pass
+                continue
         cur.execute("DELETE FROM replies WHERE chat_id = ?", (cid,))
         conn.commit()
     except:
@@ -227,6 +228,7 @@ def ban_user(m):
         remove_active_user(cid)
 
     waiting_for_maryam.discard(cid)
+
     log_to_admin("INFO", f"✅ کاربر {cid} پاکسازی شد (بلاک واقعی توی TeleBot حذف شده)")
 
 # ================== پیام‌های عاشقانه ==================
@@ -253,7 +255,6 @@ msg_pool = {}
 def get_next_message(cid):
     if cid not in msg_history:
         msg_history[cid] = deque(maxlen=MESSAGE_MEMORY)
-
     if cid not in msg_pool or not msg_pool[cid]:
         pool = romantic_messages[:]
         random.shuffle(pool)
@@ -280,7 +281,6 @@ kiss_voice_pool = {}
 def get_next_kiss_voice(cid):
     if cid not in kiss_voice_history:
         kiss_voice_history[cid] = deque(maxlen=KISS_VOICE_MEMORY)
-
     if cid not in kiss_voice_pool or not kiss_voice_pool[cid]:
         pool = KISS_VOICE_IDS[:]
         random.shuffle(pool)
@@ -306,14 +306,11 @@ KISS_PATTERNS = (
     re.compile(r"^ما+چ+$"),
 )
 
-def is_kiss(text: str) -> bool:
-    if not text:
-        return False
-    for word in text.strip().split():
-        clean = word.strip(".,!?؟،؛:()[]{}\"'")
-        for p in KISS_PATTERNS:
-            if p.fullmatch(clean):
-                return True
+def is_kiss(word: str) -> bool:
+    clean = word.strip(".,!?؟،؛:()[]{}\"'")
+    for p in KISS_PATTERNS:
+        if p.fullmatch(clean):
+            return True
     return False
 
 # ================== کیبورد ==================
@@ -391,7 +388,7 @@ def all_messages(m):
     # 📩 فوروارد پیام کاربر برای ادمین + ثبت مپینگ
     if cid != ADMIN_ID:
         try:
-            fwd = bot.forward_message(ADMIN_ID, cid, m.message_id)
+            fwd = bot.copy_message(ADMIN_ID, cid, m.message_id)
             save_reply_map(
                 admin_msg_id=fwd.message_id,
                 chat_id=cid,
@@ -431,17 +428,17 @@ def all_messages(m):
             bot.send_message(cid, "آیا تو مریمی؟")
             return
 
-    # 📌 تشخیص ویس بوس (کلمه به کلمه)
-    if text_raw == "بوس بوسیییی" or is_kiss(text_raw):
-        try:
-            vid = get_next_kiss_voice(cid)
-            bot.send_voice(cid, vid, reply_to_message_id=m.message_id)
-            admin_stats["kiss"] += 1
-        except:
-            admin_stats["errors"] += 1
-        return
+    # 📩 بررسی بوس
+    for word in text.strip().split():
+        if is_kiss(word) or text_raw.strip() == "بوس بوسیییی":
+            try:
+                vid = get_next_kiss_voice(cid)
+                bot.send_voice(cid, vid, reply_to_message_id=m.message_id)
+                admin_stats["kiss"] += 1
+            except:
+                admin_stats["errors"] += 1
+            return
 
-    # پاسخ‌های پیشفرض
     if "دلم واست تنگولیده" in text:
         bot.reply_to(m, f"{get_next_message(cid)}\n\nدل منم هر لحظه برات تنگولیده ❤️")
         return
@@ -449,6 +446,8 @@ def all_messages(m):
     if "دوستت دارم" in text or "عشقم" in text:
         bot.reply_to(m, "همه چیز منییی؛ عاچقتم ❤️")
         return
+
+    # اگر پیام در هیچ دسته‌بندی نبود، هیچ کاری انجام نمیده، فقط به ادمین فوروارد شده قبلیه
 
 # ================== polling ==================
 bot.delete_webhook(drop_pending_updates=True)
