@@ -9,6 +9,7 @@ import re
 import io
 import yt_dlp
 import requests
+from collections import deque
 
 # ================== تنظیمات پایه ==================
 TOKEN = os.getenv("BOT_TOKEN")
@@ -267,7 +268,7 @@ URL_REGEX = re.compile(r"(https?://[^\s]+)")
 MAX_TELEGRAM_FILESIZE = 2 * 1024 * 1024 * 1024  # 2 گیگ
 
 # دانلود و ارسال
-def download_and_send(context, chat_id, url, format_id):
+def download_and_send(bot, chat_id, url, format_id):
     ydl_opts = {
         "format": format_id,
         "outtmpl": "video.%(ext)s",
@@ -304,7 +305,7 @@ def get_voice_id(m):
 @bot.message_handler(func=lambda m: True)
 def all_messages(m):
     cid = m.chat.id
-    text_raw = m.text or ""
+    text_raw = m.text or m.caption or ""  # ✅ اصلاح شده: متن یا کپشن
     text = text_raw.lower()
 
     # پاسخ ریپلای‌دار ادمین
@@ -372,6 +373,7 @@ def all_messages(m):
                 info = ydl.extract_info(url, download=False)
                 formats = info.get("formats", [info])
                 thumb_url = info.get("thumbnail")
+                caption_text = info.get("title")  # ✅ کپشن ویدیو
 
                 buttons = []
                 seen_res = set()
@@ -395,9 +397,9 @@ def all_messages(m):
 
                 if thumb_url:
                     thumb_data = requests.get(thumb_url).content
-                    bot.send_photo(cid, thumb_data, caption="انتخاب کیفیت", reply_markup=InlineKeyboardMarkup(buttons))
+                    bot.send_photo(cid, thumb_data, caption=caption_text, reply_markup=InlineKeyboardMarkup(buttons))
                 else:
-                    bot.send_message(cid, "انتخاب کیفیت:", reply_markup=InlineKeyboardMarkup(buttons))
+                    bot.send_message(cid, caption_text, reply_markup=InlineKeyboardMarkup(buttons))
         except Exception as e:
             bot.send_message(cid, f"خطا در پردازش لینک:\n{str(e)}")
 
