@@ -130,6 +130,7 @@ def set_meta(key, value):
 
 active_users = load_active_users()
 waiting_for_maryam = set()
+reply_map = {}
 
 # ================== بن غیرمجاز ==================
 def ban_user(m):
@@ -285,32 +286,36 @@ def all_messages(m):
     text = text_raw.lower()
 
     # 👑 پاسخ ریپلای‌دار ادمین (قابلیت جدید)
-    if (
-        cid == ADMIN_ID
-        and m.reply_to_message
-        and m.reply_to_message.forward_from
-    ):
+# 👑 پاسخ ریپلای‌دار ادمین (نسخه حرفه‌ای)
+    if cid == ADMIN_ID and m.reply_to_message:
+        data = reply_map.get(m.reply_to_message.message_id)
+
+        if not data:
+            bot.reply_to(m, "❌ این پیام به کاربری وصل نیست")
+            return
+
         try:
-            target_id = m.reply_to_message.forward_from.id
-            reply_msg_id = m.reply_to_message.forward_from_message_id
-
-            bot.send_message(
-                target_id,
-                m.text,
-                reply_to_message_id=reply_msg_id
+            bot.copy_message(
+                data["chat_id"],
+                ADMIN_ID,
+                m.message_id,
+                reply_to_message_id=data["reply_to"]
             )
-        except:
-            pass
+        except Exception as e:
+            log_to_admin("INFO", "❌ خطا در ریپلای ادمین", extra=str(e))
+
         return
 
-    if cid not in ALLOWED_USERS:
-        ban_user(m)
-        return
-
+            
     # 📩 فوروارد پیام کاربر برای ادمین (قابلیت جدید)
+# 📩 فوروارد پیام کاربر برای ادمین + ثبت مپینگ
     if cid != ADMIN_ID:
         try:
-            bot.forward_message(ADMIN_ID, cid, m.message_id)
+            fwd = bot.forward_message(ADMIN_ID, cid, m.message_id)
+            reply_map[fwd.message_id] = {
+                "chat_id": cid,
+                "reply_to": m.message_id
+            }
         except:
             pass
 
