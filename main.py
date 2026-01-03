@@ -367,7 +367,6 @@ def all_messages(m):
             vid = get_next_kiss_voice(cid)
             bot.send_voice(cid, vid, reply_to_message_id=m.message_id)
             admin_stats["kiss"] += 1
-            log_to_admin("ACTION", "💋 بوس / ماچ", m)
         except:
             admin_stats["errors"] += 1
         return
