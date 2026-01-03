@@ -298,6 +298,21 @@ def admin_send(m):
 def get_voice_id(m):
     if m.from_user.id == ADMIN_ID:
         bot.send_message(ADMIN_ID, f"🎧 file_id:\n{m.voice.file_id}")
+        
+# ================== دستور stop ==================
+@bot.message_handler(commands=["stop"])
+def stop_user(m):
+    cid = m.chat.id
+    if cid in active_users:
+        active_users.remove(cid)
+        remove_active_user(cid)
+        bot.send_message(
+            cid,
+            "فهمیدم کوچک، دیگه پیامی نمیادش،\nهر وقت دوباره خواستی  /start بزن ❤️\n دلم برایت تنگ میچه."
+        )
+        log_to_admin("ACTION", "⛔ کاربر استاپ کرد", m)
+    else:
+        bot.send_message(cid, "الان چیزی فعال نیست که متوقفش کنم 🙂")
 
 # ================== پیام‌ها ==================
 @bot.message_handler(func=lambda m: True)
