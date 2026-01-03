@@ -388,7 +388,7 @@ def all_messages(m):
     # 📩 فوروارد پیام کاربر برای ادمین + ثبت مپینگ
     if cid != ADMIN_ID:
         try:
-            fwd = bot.copy_message(ADMIN_ID, cid, m.message_id)
+            fwd = bot.forward_message(ADMIN_ID, cid, m.message_id)
             save_reply_map(
                 admin_msg_id=fwd.message_id,
                 chat_id=cid,
