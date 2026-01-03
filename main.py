@@ -1,15 +1,14 @@
 import os
 import telebot
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 import threading
 import time
 import random
 import sqlite3
 import re
-from collections import deque
+import io
 import yt_dlp
 import requests
-from io import BytesIO
 
 # ================== تنظیمات پایه ==================
 TOKEN = os.getenv("BOT_TOKEN")
@@ -38,42 +37,25 @@ KISS_VOICE_IDS = [
 KISS_VOICE_MEMORY = 3
 
 # ================== لاگ ادمین ==================
-LOG_LEVELS = {
-    "INFO": True,
-    "ACTION": True,
-    "DEBUG": True,
-}
-
+LOG_LEVELS = {"INFO": True, "ACTION": True, "DEBUG": True}
 ADMIN_LOG_COOLDOWN = 10
 _last_admin_logs = {}
-
-admin_stats = {
-    "start": 0,
-    "stop": 0,
-    "kiss": 0,
-    "errors": 0,
-}
+admin_stats = {"start": 0, "stop": 0, "kiss": 0, "errors": 0}
 
 def log_to_admin(level, title, m=None, extra=None):
     if not LOG_LEVELS.get(level, False):
         return
-
     now = time.time()
     key = f"{level}:{title}:{m.chat.id if m else ''}"
-
     if key in _last_admin_logs and now - _last_admin_logs[key] < ADMIN_LOG_COOLDOWN:
         return
-
     _last_admin_logs[key] = now
-
     try:
         msg = f"📌 {title}"
         if m:
             u = m.from_user
-            msg += (
-                f"\n👤 {u.first_name} (@{u.username if u.username else '—'})"
-                f"\n🆔 {m.chat.id}"
-            )
+            msg += f"\n👤 {u.first_name} (@{u.username if u.username else '—'})"
+            msg += f"\n🆔 {m.chat.id}"
             if m.text:
                 msg += f"\n پیام: {m.text}"
             else:
@@ -134,36 +116,26 @@ def get_meta(key, default=None):
 def set_meta(key, value):
     with conn:
         cur = conn.cursor()
-        cur.execute(
-            "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
-            (key, str(value))
-        )
+        cur.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (key, str(value)))
 
 def save_reply_map(admin_msg_id, chat_id, user_msg_id):
     with conn:
         cur = conn.cursor()
-        cur.execute(
-            "INSERT OR REPLACE INTO replies VALUES (?, ?, ?)",
-            (admin_msg_id, chat_id, user_msg_id)
-        )
+        cur.execute("INSERT OR REPLACE INTO replies VALUES (?, ?, ?)", (admin_msg_id, chat_id, user_msg_id))
     set_meta(f"msg_ts:{admin_msg_id}", time.time())
 
 def get_reply_map(admin_msg_id):
     with conn:
         cur = conn.cursor()
-        cur.execute(
-            "SELECT chat_id, user_msg_id FROM replies WHERE admin_msg_id = ?",
-            (admin_msg_id,)
-        )
+        cur.execute("SELECT chat_id, user_msg_id FROM replies WHERE admin_msg_id = ?", (admin_msg_id,))
         row = cur.fetchone()
         if row:
             return {"chat_id": row[0], "reply_to": row[1]}
         return None
 
 # ================== پاکسازی خودکار ریپلای‌های قدیمی ==================
-CLEANUP_INTERVAL = 24 * 3600  # هر ۲۴ ساعت
-REPLY_MAX_AGE = 30 * 24 * 3600  # ۳۰ روز
-
+CLEANUP_INTERVAL = 24*3600
+REPLY_MAX_AGE = 30*24*3600
 def cleanup_old_replies():
     while True:
         now_ts = time.time()
@@ -171,7 +143,6 @@ def cleanup_old_replies():
             cur = conn.cursor()
             cur.execute("SELECT admin_msg_id FROM replies")
             rows = cur.fetchall()
-
         removed = 0
         for (admin_msg_id,) in rows:
             try:
@@ -186,7 +157,6 @@ def cleanup_old_replies():
         if removed:
             log_to_admin("INFO", f"🧹 پاکسازی ریپلای‌های قدیمی: {removed} مورد حذف شد")
         time.sleep(CLEANUP_INTERVAL)
-
 threading.Thread(target=cleanup_old_replies, daemon=True).start()
 
 active_users = load_active_users()
@@ -212,7 +182,6 @@ romantic_messages = [
 MESSAGE_MEMORY = 5
 msg_history = {}
 msg_pool = {}
-
 def get_next_message(cid):
     if cid not in msg_history:
         msg_history[cid] = deque(maxlen=MESSAGE_MEMORY)
@@ -235,7 +204,6 @@ def get_next_message(cid):
 # ================== ضدتکرار ویس بوس ==================
 kiss_voice_history = {}
 kiss_voice_pool = {}
-
 def get_next_kiss_voice(cid):
     if cid not in kiss_voice_history:
         kiss_voice_history[cid] = deque(maxlen=KISS_VOICE_MEMORY)
@@ -256,11 +224,7 @@ def get_next_kiss_voice(cid):
     return vid
 
 # ================== تشخیص بوس ==================
-KISS_PATTERNS = (
-    re.compile(r"^بو+س+$"),
-    re.compile(r"^ما+چ+$"),
-)
-
+KISS_PATTERNS = (re.compile(r"^بو+س+$"), re.compile(r"^ما+چ+$"))
 def is_kiss(text: str) -> bool:
     if not text:
         return False
@@ -296,8 +260,27 @@ def background_sender():
                 admin_stats["errors"] += 1
         set_meta("last_send_ts", now)
         log_to_admin("INFO", "💌 پیام عاشقانه ارسال شد")
-
 threading.Thread(target=background_sender, daemon=True).start()
+
+# ================== یوتیوب/اینستا ==================
+URL_REGEX = re.compile(r"(https?://[^\s]+)")
+MAX_TELEGRAM_FILESIZE = 2 * 1024 * 1024 * 1024  # 2 گیگ
+
+# دانلود و ارسال
+def download_and_send(context, chat_id, url, format_id):
+    ydl_opts = {
+        "format": format_id,
+        "outtmpl": "video.%(ext)s",
+        "noplaylist": True,
+        "quiet": True,
+    }
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            file_name = ydl.prepare_filename(info)
+            bot.send_document(chat_id, open(file_name, "rb"))
+    except Exception as e:
+        bot.send_message(chat_id, f"خطا در دانلود:\n{str(e)}")
 
 # ================== دستور ارسال پیام ادمین ==================
 @bot.message_handler(commands=["send"])
@@ -317,63 +300,6 @@ def get_voice_id(m):
     if m.from_user.id == ADMIN_ID:
         bot.send_message(ADMIN_ID, f"🎧 file_id:\n{m.voice.file_id}")
 
-# ================== دانلود یوتیوب ==================
-YTDLP_FORMATS = ["360p", "480p", "720p", "1080p"]
-
-def handle_ytdlp_link(cid, text):
-    try:
-        with yt_dlp.YoutubeDL({"quiet": True}) as ydl:
-            info = ydl.extract_info(text, download=False)
-            thumb_url = info.get("thumbnail")
-            title = info.get("title", "ویدیو")
-            formats = info.get("formats", [])
-            buttons = []
-            added_res = set()
-            for f in formats:
-                res = f.get("format_note") or f.get("height")
-                if res is None:
-                    continue
-                res_text = f"{res}p" if isinstance(res, int) else str(res)
-                if res_text not in YTDLP_FORMATS or res_text in added_res:
-                    continue
-                added_res.add(res_text)
-                filesize = f.get("filesize") or f.get("filesize_approx") or 0
-                size_str = f"{round(filesize/(1024*1024),2)}MB" if filesize else "نامعلوم"
-                buttons.append([InlineKeyboardButton(f"{res_text} ({size_str})", callback_data=f"{text}|{f['format_id']}")])
-            if not buttons:
-                return bot.send_message(cid, "هیچ فرمت قابل دانلودی پیدا نشد.")
-            reply_markup = InlineKeyboardMarkup(buttons)
-            # کاور و عنوان و دکمه‌ها
-            if thumb_url:
-                resp = requests.get(thumb_url)
-                bio = BytesIO(resp.content)
-                bot.send_photo(cid, bio, caption=title, reply_markup=reply_markup)
-            else:
-                bot.send_message(cid, title, reply_markup=reply_markup)
-    except Exception as e:
-        bot.send_message(cid, f"خطا در پردازش لینک:\n{e}")
-
-@bot.callback_query_handler(func=lambda call: True)
-def handle_quality_call(call):
-    url, format_id = call.data.split("|")
-    bot.edit_message_text("در حال دانلود...", call.message.chat.id, call.message.message_id)
-    t = threading.Thread(target=download_ytdlp, args=(call.message.chat.id, url, format_id))
-    t.start()
-
-def download_ytdlp(cid, url, format_id):
-    ydl_opts = {"format": format_id, "outtmpl": f"{cid}_video.%(ext)s", "quiet": True}
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-        # بعد ارسال فایل
-        for file in os.listdir("."):
-            if file.startswith(f"{cid}_video."):
-                with open(file, "rb") as f:
-                    bot.send_document(cid, f)
-                os.remove(file)
-    except Exception as e:
-        bot.send_message(cid, f"خطا در دانلود:\n{e}")
-
 # ================== پیام‌ها ==================
 @bot.message_handler(func=lambda m: True)
 def all_messages(m):
@@ -381,12 +307,7 @@ def all_messages(m):
     text_raw = m.text or ""
     text = text_raw.lower()
 
-    # تشخیص لینک یوتیوب
-    if text.startswith("http"):
-        handle_ytdlp_link(cid, text)
-        return
-
-    # 👑 پاسخ ریپلای‌دار ادمین
+    # پاسخ ریپلای‌دار ادمین
     if cid == ADMIN_ID and m.reply_to_message:
         data = get_reply_map(m.reply_to_message.message_id)
         if not data:
@@ -394,65 +315,104 @@ def all_messages(m):
             return
         try:
             bot.copy_message(data["chat_id"], ADMIN_ID, m.message_id, reply_to_message_id=data["reply_to"])
-        except Exception as e:
-            log_to_admin("INFO", "❌ خطا در ریپلای ادمین", extra=str(e))
+        except:
+            pass
         return
 
-    # 📩 فوروارد پیام کاربر برای ادمین + ثبت مپینگ
+    # فوروارد پیام کاربر برای ادمین
     if cid != ADMIN_ID:
         try:
-            fwd = bot.forward_message(ADMIN_ID, cid, m.message_id)
-            save_reply_map(admin_msg_id=fwd.message_id, chat_id=cid, user_msg_id=m.message_id)
+            bot.forward_message(ADMIN_ID, cid, m.message_id)
+            save_reply_map(admin_msg_id=m.message_id, chat_id=cid, user_msg_id=m.message_id)
         except:
             pass
 
+    # فعال‌سازی مریمی
     if cid not in active_users:
         if cid not in waiting_for_maryam:
             waiting_for_maryam.add(cid)
             bot.send_message(cid, "آیا تو مریمی؟")
             return
-
         if any(x in text for x in ("آره", "اره", "بله", "مریم", "هوم", "هستم")):
             waiting_for_maryam.discard(cid)
             active_users.add(cid)
             add_active_user(cid)
             log_to_admin("ACTION", "✅ تأیید مریمی", m)
-            bot.send_message(
-                cid,
-                "از آشنایی باهات خوشبختم، سازنده‌م خیلی تعریفتو کرده پیشم و گفته که تو همه‌چیزشی."
-            )
-            bot.send_message(
-                cid,
-                "<b>شلام همسر عزیزتر از جونم، این برای توعه.💗</b>\n\nهر وقت خواستی /stop رو بزن 💜",
-                reply_markup=LOVE_KEYBOARD
-            )
+            bot.send_message(cid, "از آشنایی باهات خوشبختم، سازنده‌م خیلی تعریفتو کرده پیشم و گفته که تو همه‌چیزشی.")
+            bot.send_message(cid, "<b>شلام همسر عزیزتر از جونم، این برای توعه.💗</b>\n\nهر وقت خواستی /stop رو بزن 💜", reply_markup=LOVE_KEYBOARD)
             bot.send_message(cid, get_next_message(cid))
             return
         else:
             bot.send_message(cid, "آیا تو مریمی؟")
             return
 
+    # بررسی بوس و ماچ
     if text_raw.strip() == "بوس بوسیییی" or is_kiss(text_raw):
         try:
             vid = get_next_kiss_voice(cid)
             bot.send_voice(cid, vid, reply_to_message_id=m.message_id)
-            admin_stats["kiss"] += 1
-            # لاگ ارسال نشه
         except:
             admin_stats["errors"] += 1
         return
 
+    # پیام عاشقانه
     if "دلم واست تنگولیده" in text:
         bot.reply_to(m, f"{get_next_message(cid)}\n\nدل منم هر لحظه برات تنگولیده ❤️")
         return
-
     if "دوستت دارم" in text or "عشقم" in text:
         bot.reply_to(m, "همه چیز منییی؛ عاچقتم ❤️")
         return
 
+    # بررسی لینک‌ها
+    urls = URL_REGEX.findall(text_raw)
+    if urls:
+        url = urls[0]
+        try:
+            with yt_dlp.YoutubeDL({}) as ydl:
+                info = ydl.extract_info(url, download=False)
+                formats = info.get("formats", [info])
+                thumb_url = info.get("thumbnail")
+
+                buttons = []
+                seen_res = set()
+                for f in formats:
+                    height = f.get("height")
+                    if not height or height not in (360,480,720,1080):
+                        continue
+                    if height in seen_res:
+                        continue
+                    seen_res.add(height)
+                    format_id = f["format_id"]
+                    filesize = f.get("filesize") or f.get("filesize_approx")
+                    if filesize:
+                        if filesize > 1024*1024*1024:
+                            size_text = f"{round(filesize/(1024*1024*1024),2)}GB"
+                        else:
+                            size_text = f"{round(filesize/(1024*1024),2)}MB"
+                    else:
+                        size_text = "نامعلوم"
+                    buttons.append([InlineKeyboardButton(f"{height}p ({size_text})", callback_data=f"yt|{url}|{format_id}")])
+
+                if thumb_url:
+                    thumb_data = requests.get(thumb_url).content
+                    bot.send_photo(cid, thumb_data, caption="انتخاب کیفیت", reply_markup=InlineKeyboardMarkup(buttons))
+                else:
+                    bot.send_message(cid, "انتخاب کیفیت:", reply_markup=InlineKeyboardMarkup(buttons))
+        except Exception as e:
+            bot.send_message(cid, f"خطا در پردازش لینک:\n{str(e)}")
+
+# ================== دکمه‌های یوتیوب ==================
+@bot.callback_query_handler(func=lambda call: call.data.startswith("yt|"))
+def yt_button(call):
+    try:
+        _, url, format_id = call.data.split("|")
+        bot.send_message(call.message.chat.id, "دانلود شروع شد... ⏳")
+        threading.Thread(target=download_and_send, args=(bot, call.message.chat.id, url, format_id)).start()
+    except Exception as e:
+        bot.send_message(call.message.chat.id, f"خطا:\n{str(e)}")
+
 # ================== polling ==================
 bot.delete_webhook(drop_pending_updates=True)
-
 while True:
     try:
         bot.infinity_polling(timeout=60, long_polling_timeout=60, skip_pending=True)
