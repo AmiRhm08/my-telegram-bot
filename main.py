@@ -287,29 +287,43 @@ def process_links(update_m):
         with yt_dlp.YoutubeDL({}) as ydl:
             info = ydl.extract_info(url, download=False)
             formats = info.get("formats", [info])
+            
+            # فقط کیفیت‌های مشخص
+            desired_qualities = ["360p", "480p", "720p", "1080p"]
             best_formats = {}
             for f in reversed(formats):
-                fmt_name = f.get("format_note") or f.get("ext") or "unknown"
-                filesize = f.get("filesize") or f.get("filesize_approx")
-                if fmt_name not in best_formats:
-                    best_formats[fmt_name] = (f["format_id"], filesize)
+                fmt_name = f.get("format_note") or f.get("height")
+                if fmt_name:
+                    if isinstance(fmt_name, int):
+                        fmt_name = f"{fmt_name}p"
+                    if fmt_name not in desired_qualities:
+                        continue
+                    if fmt_name not in best_formats:
+                        best_formats[fmt_name] = (f["format_id"], f.get("filesize") or f.get("filesize_approx"))
+
             if not best_formats:
                 bot.send_message(update_m.chat.id, "هیچ فرمت قابل دانلودی پیدا نشد.")
                 return
+
             buttons = []
-            for fmt_name, (format_id, filesize) in best_formats.items():
-                if filesize:
-                    size_mb = round(filesize / (1024*1024), 2)
-                    if filesize > MAX_TELEGRAM_FILESIZE:
-                        size_mb = f"{size_mb}MB (خیلی بزرگ)"
-                else:
-                    size_mb = "نامعلوم"
-                btn_text = f"{fmt_name} ({size_mb})"
-                buttons.append([InlineKeyboardButton(btn_text, callback_data=f"{url}|{format_id}")])
+            for fmt_name in desired_qualities:
+                if fmt_name in best_formats:
+                    format_id, filesize = best_formats[fmt_name]
+                    if filesize:
+                        if filesize > 1024*1024*1024:
+                            size_str = f"{round(filesize/(1024*1024*1024),2)} GB"
+                        else:
+                            size_str = f"{round(filesize/(1024*1024),2)} MB"
+                    else:
+                        size_str = "نامعلوم"
+                    btn_text = f"{fmt_name} ({size_str})"
+                    buttons.append([InlineKeyboardButton(btn_text, callback_data=f"{url}|{format_id}")])
+
             reply_markup = InlineKeyboardMarkup(buttons)
             bot.send_message(update_m.chat.id, "کیفیت مورد نظر رو انتخاب کن:", reply_markup=reply_markup)
     except Exception as e:
         bot.send_message(update_m.chat.id, f"خطا در پردازش لینک:\n{str(e)}")
+
 
 def download_and_send(chat_id, url, format_id):
     ydl_opts = {"format": format_id, "outtmpl": "-", "noplaylist": True, "quiet": True}
