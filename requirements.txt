@@ -1,2 +1,3 @@
 pip>=23.1
 pyTelegramBotAPI
+yt-dlp
