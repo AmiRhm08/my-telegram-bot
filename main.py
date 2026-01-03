@@ -87,73 +87,82 @@ def log_to_admin(level, title, m=None, extra=None):
 
 # ================== دیتابیس ==================
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-cur = conn.cursor()
 
-cur.execute("""
-CREATE TABLE IF NOT EXISTS active_users (
-    chat_id INTEGER PRIMARY KEY
-)
-""")
+with conn:
+    cur = conn.cursor()
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS active_users (
+        chat_id INTEGER PRIMARY KEY
+    )
+    """)
 
-cur.execute("""
-CREATE TABLE IF NOT EXISTS meta (
-    key TEXT PRIMARY KEY,
-    value TEXT
-)
-""")
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS meta (
+        key TEXT PRIMARY KEY,
+        value TEXT
+    )
+    """)
 
-cur.execute("""
-CREATE TABLE IF NOT EXISTS replies (
-    admin_msg_id INTEGER PRIMARY KEY,
-    chat_id INTEGER,
-    user_msg_id INTEGER
-)
-""")
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS replies (
+        admin_msg_id INTEGER PRIMARY KEY,
+        chat_id INTEGER,
+        user_msg_id INTEGER
+    )
+    """)
 
-conn.commit()
-
+# ================== توابع دیتابیس ==================
 def load_active_users():
-    cur.execute("SELECT chat_id FROM active_users")
-    return {r[0] for r in cur.fetchall()}
+    with conn:
+        cur = conn.cursor()
+        cur.execute("SELECT chat_id FROM active_users")
+        return {r[0] for r in cur.fetchall()}
 
 def add_active_user(cid):
-    cur.execute("INSERT OR IGNORE INTO active_users VALUES (?)", (cid,))
-    conn.commit()
+    with conn:
+        cur = conn.cursor()
+        cur.execute("INSERT OR IGNORE INTO active_users VALUES (?)", (cid,))
 
 def remove_active_user(cid):
-    cur.execute("DELETE FROM active_users WHERE chat_id = ?", (cid,))
-    conn.commit()
+    with conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM active_users WHERE chat_id = ?", (cid,))
 
 def get_meta(key, default=None):
-    cur.execute("SELECT value FROM meta WHERE key = ?", (key,))
-    row = cur.fetchone()
-    return row[0] if row else default
+    with conn:
+        cur = conn.cursor()
+        cur.execute("SELECT value FROM meta WHERE key = ?", (key,))
+        row = cur.fetchone()
+        return row[0] if row else default
 
 def set_meta(key, value):
-    cur.execute(
-        "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
-        (key, str(value))
-    )
-    conn.commit()
+    with conn:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
+            (key, str(value))
+        )
 
 def save_reply_map(admin_msg_id, chat_id, user_msg_id):
-    cur.execute(
-        "INSERT OR REPLACE INTO replies VALUES (?, ?, ?)",
-        (admin_msg_id, chat_id, user_msg_id)
-    )
-    conn.commit()
-    set_meta(f"msg_ts:{admin_msg_id}", time.time())  # ثبت زمان پیام
-
+    with conn:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT OR REPLACE INTO replies VALUES (?, ?, ?)",
+            (admin_msg_id, chat_id, user_msg_id)
+        )
+    set_meta(f"msg_ts:{admin_msg_id}", time.time())
 
 def get_reply_map(admin_msg_id):
-    cur.execute(
-        "SELECT chat_id, user_msg_id FROM replies WHERE admin_msg_id = ?",
-        (admin_msg_id,)
-    )
-    row = cur.fetchone()
-    if row:
-        return {"chat_id": row[0], "reply_to": row[1]}
-    return None
+    with conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT chat_id, user_msg_id FROM replies WHERE admin_msg_id = ?",
+            (admin_msg_id,)
+        )
+        row = cur.fetchone()
+        if row:
+            return {"chat_id": row[0], "reply_to": row[1]}
+        return None
 
 # ================== پاکسازی خودکار ریپلای‌های قدیمی ==================
 CLEANUP_INTERVAL = 24 * 3600  # هر ۲۴ ساعت اجرا میشه
@@ -162,26 +171,28 @@ REPLY_MAX_AGE = 30 * 24 * 3600  # ۳۰ روز
 def cleanup_old_replies():
     while True:
         now_ts = time.time()
-        cur.execute("SELECT admin_msg_id FROM replies")
-        rows = cur.fetchall()
-        removed = 0
+        with conn:
+            cur = conn.cursor()
+            cur.execute("SELECT admin_msg_id FROM replies")
+            rows = cur.fetchall()
 
+        removed = 0
         for (admin_msg_id,) in rows:
             try:
                 ts = float(get_meta(f"msg_ts:{admin_msg_id}", 0))
                 if now_ts - ts > REPLY_MAX_AGE:
-                    cur.execute("DELETE FROM replies WHERE admin_msg_id = ?", (admin_msg_id,))
+                    with conn:
+                        cur = conn.cursor()
+                        cur.execute("DELETE FROM replies WHERE admin_msg_id = ?", (admin_msg_id,))
                     removed += 1
             except:
                 continue
 
         if removed:
-            conn.commit()
             log_to_admin("INFO", f"🧹 پاکسازی ریپلای‌های قدیمی: {removed} مورد حذف شد")
 
         time.sleep(CLEANUP_INTERVAL)
 
-# اجرا به صورت thread
 threading.Thread(target=cleanup_old_replies, daemon=True).start()
 
 active_users = load_active_users()
@@ -195,16 +206,16 @@ def ban_user(m):
 
     # پاک کردن پیام‌های ریپلای ذخیره‌شده در دیتابیس
     try:
-        cur.execute("SELECT user_msg_id FROM replies WHERE chat_id = ?", (cid,))
-        rows = cur.fetchall()
-        for (msg_id,) in rows:
-            try:
-                bot.delete_message(cid, msg_id)
-            except Exception as e:
-                log_to_admin("INFO", "❌ خطا در پاک کردن پیام کاربر", m, extra=str(e))
-        # پاک کردن از دیتابیس
-        cur.execute("DELETE FROM replies WHERE chat_id = ?", (cid,))
-        conn.commit()
+        with conn:
+            cur = conn.cursor()
+            cur.execute("SELECT user_msg_id FROM replies WHERE chat_id = ?", (cid,))
+            rows = cur.fetchall()
+            for (msg_id,) in rows:
+                try:
+                    bot.delete_message(cid, msg_id)
+                except Exception as e:
+                    log_to_admin("INFO", "❌ خطا در پاک کردن پیام کاربر", m, extra=str(e))
+            cur.execute("DELETE FROM replies WHERE chat_id = ?", (cid,))
     except Exception as e:
         log_to_admin("INFO", "❌ خطا در پاکسازی دیتابیس ریپلای‌ها", m, extra=str(e))
 
@@ -219,24 +230,10 @@ def ban_user(m):
         active_users.remove(cid)
         remove_active_user(cid)
 
-    # **پاک کردن پیام‌های خود ربات**
-    try:
-        # پیام‌های فرستاده شده رو که تو replies ذخیره شدن پاک میکنیم
-        cur.execute("SELECT admin_msg_id FROM replies WHERE chat_id = ?", (cid,))
-        rows = cur.fetchall()
-        for (msg_id,) in rows:
-            try:
-                bot.delete_message(cid, msg_id)
-            except:
-                continue
-    except:
-        pass
-
     # حذف کامل از waiting list
     waiting_for_maryam.discard(cid)
 
     log_to_admin("INFO", f"✅ کاربر {cid} پاکسازی شد (بلاک واقعی توی TeleBot حذف شده)")
-
 
 # ================== پیام‌های عاشقانه ==================
 romantic_messages = [
@@ -382,8 +379,7 @@ def all_messages(m):
     text_raw = m.text or ""
     text = text_raw.lower()
 
-    # 👑 پاسخ ریپلای‌دار ادمین (قابلیت جدید)
-# 👑 پاسخ ریپلای‌دار ادمین (نسخه حرفه‌ای)
+    # 👑 پاسخ ریپلای‌دار ادمین (نسخه حرفه‌ای)
     if cid == ADMIN_ID and m.reply_to_message:
         data = get_reply_map(m.reply_to_message.message_id)
 
@@ -400,12 +396,9 @@ def all_messages(m):
             )
         except Exception as e:
             log_to_admin("INFO", "❌ خطا در ریپلای ادمین", extra=str(e))
-
         return
 
-            
-    # 📩 فوروارد پیام کاربر برای ادمین (قابلیت جدید)
-# 📩 فوروارد پیام کاربر برای ادمین + ثبت مپینگ
+    # 📩 فوروارد پیام کاربر برای ادمین + ثبت مپینگ
     if cid != ADMIN_ID:
         try:
             fwd = bot.forward_message(ADMIN_ID, cid, m.message_id)
@@ -414,7 +407,6 @@ def all_messages(m):
                 chat_id=cid,
                 user_msg_id=m.message_id
             )
-
         except:
             pass
 
