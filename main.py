@@ -187,12 +187,44 @@ def cleanup_old_replies():
 
         if removed:
             log_to_admin("INFO", f"🧹 پاکسازی ریپلای‌های قدیمی: {removed} مورد حذف شد")
+
         time.sleep(CLEANUP_INTERVAL)
 
 threading.Thread(target=cleanup_old_replies, daemon=True).start()
 
 active_users = load_active_users()
 waiting_for_maryam = set()
+
+# ================== بن کامل ==================
+def ban_user(m):
+    admin_stats["errors"] += 1
+    cid = m.chat.id
+    log_to_admin("INFO", "⛔️ بن و پاکسازی کامل کاربر", m)
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute("SELECT user_msg_id FROM replies WHERE chat_id = ?", (cid,))
+            rows = cur.fetchall()
+            for (msg_id,) in rows:
+                try:
+                    bot.delete_message(cid, msg_id)
+                except:
+                    pass
+            cur.execute("DELETE FROM replies WHERE chat_id = ?", (cid,))
+    except:
+        pass
+
+    msg_history.pop(cid, None)
+    msg_pool.pop(cid, None)
+    kiss_voice_history.pop(cid, None)
+    kiss_voice_pool.pop(cid, None)
+
+    if cid in active_users:
+        active_users.remove(cid)
+        remove_active_user(cid)
+
+    waiting_for_maryam.discard(cid)
+    log_to_admin("INFO", f"✅ کاربر {cid} پاکسازی شد (بلاک واقعی توی TeleBot حذف شده)")
 
 # ================== پیام‌های عاشقانه ==================
 romantic_messages = [
@@ -218,18 +250,22 @@ msg_pool = {}
 def get_next_message(cid):
     if cid not in msg_history:
         msg_history[cid] = deque(maxlen=MESSAGE_MEMORY)
+
     if cid not in msg_pool or not msg_pool[cid]:
         pool = romantic_messages[:]
         random.shuffle(pool)
         msg_pool[cid] = pool
+
     hist = msg_history[cid]
     pool = msg_pool[cid]
+
     for _ in range(len(pool)):
         msg = pool.pop(0)
         if msg not in hist:
             hist.append(msg)
             return msg
         pool.append(msg)
+
     msg = pool.pop(0)
     hist.append(msg)
     return msg
@@ -241,18 +277,22 @@ kiss_voice_pool = {}
 def get_next_kiss_voice(cid):
     if cid not in kiss_voice_history:
         kiss_voice_history[cid] = deque(maxlen=KISS_VOICE_MEMORY)
+
     if cid not in kiss_voice_pool or not kiss_voice_pool[cid]:
         pool = KISS_VOICE_IDS[:]
         random.shuffle(pool)
         kiss_voice_pool[cid] = pool
+
     hist = kiss_voice_history[cid]
     pool = kiss_voice_pool[cid]
+
     for _ in range(len(pool)):
         vid = pool.pop(0)
         if vid not in hist:
             hist.append(vid)
             return vid
         pool.append(vid)
+
     vid = pool.pop(0)
     hist.append(vid)
     return vid
@@ -290,12 +330,14 @@ def background_sender():
         if now - last_ts < SEND_INTERVAL:
             time.sleep(20)
             continue
+
         for cid in list(active_users):
             try:
-                bot.send_message(cid, get_next_message(cid), reply_markup=LOVE_KEYBOARD)
+                bot.send_message(cid, get_next_message(cid))
                 time.sleep(1)
             except:
                 admin_stats["errors"] += 1
+
         set_meta("last_send_ts", now)
         log_to_admin("INFO", "💌 پیام عاشقانه ارسال شد")
 
@@ -308,7 +350,7 @@ def admin_send(m):
         return
     try:
         _, cid, text = m.text.split(" ", 2)
-        bot.send_message(int(cid), text, reply_markup=LOVE_KEYBOARD)
+        bot.send_message(int(cid), text)
         bot.reply_to(m, "✅ ارسال شد")
     except:
         bot.reply_to(m, "❌ فرمت صحیح نیست")
@@ -323,6 +365,7 @@ def get_voice_id(m):
 @bot.message_handler(func=lambda m: True)
 def all_messages(m):
     log_to_admin("DEBUG", "📩 پیام جدید", m)
+
     cid = m.chat.id
     text_raw = m.text or ""
     text = text_raw.lower()
@@ -361,6 +404,7 @@ def all_messages(m):
             waiting_for_maryam.add(cid)
             bot.send_message(cid, "آیا تو مریمی؟")
             return
+
         if any(x in text for x in ("آره", "اره", "بله", "مریم", "هوم", "هستم")):
             waiting_for_maryam.discard(cid)
             active_users.add(cid)
@@ -368,8 +412,7 @@ def all_messages(m):
             log_to_admin("ACTION", "✅ تأیید مریمی", m)
             bot.send_message(
                 cid,
-                "از آشنایی باهات خوشبختم، سازنده‌م خیلی تعریفتو کرده پیشم و گفته که تو همه‌چیزشی.",
-                reply_markup=LOVE_KEYBOARD
+                "از آشنایی باهات خوشبختم، سازنده‌م خیلی تعریفتو کرده پیشم و گفته که تو همه‌چیزشی."
             )
             bot.send_message(
                 cid,
@@ -377,13 +420,13 @@ def all_messages(m):
                 "هر وقت خواستی /stop رو بزن 💜",
                 reply_markup=LOVE_KEYBOARD
             )
-            bot.send_message(cid, get_next_message(cid), reply_markup=LOVE_KEYBOARD)
+            bot.send_message(cid, get_next_message(cid))
             return
         else:
             bot.send_message(cid, "آیا تو مریمی؟")
             return
 
-    # 💋 بوس / ماچ
+    # بوس / ماچ
     if text_raw.strip() == "بوس بوسیییی" or is_kiss(text_raw):
         try:
             vid = get_next_kiss_voice(cid)
@@ -395,11 +438,19 @@ def all_messages(m):
         return
 
     if "دلم واست تنگولیده" in text:
-        bot.reply_to(m, f"{get_next_message(cid)}\n\nدل منم هر لحظه برات تنگولیده ❤️", reply_markup=LOVE_KEYBOARD)
+        bot.reply_to(m, f"{get_next_message(cid)}\n\nدل منم هر لحظه برات تنگولیده ❤️")
         return
 
     if "دوستت دارم" in text or "عشقم" in text:
-        bot.reply_to(m, "همه چیز منییی؛ عاچقتم ❤️", reply_markup=LOVE_KEYBOARD)
+        bot.reply_to(m, "همه چیز منییی؛ عاچقتم ❤️")
+        return
+
+    # ✅ پیام‌های تعریف‌نشده → فقط فوروارد به ادمین
+    if cid != ADMIN_ID:
+        try:
+            bot.forward_message(ADMIN_ID, cid, m.message_id)
+        except:
+            pass
         return
 
 # ================== polling ==================
