@@ -102,6 +102,14 @@ CREATE TABLE IF NOT EXISTS meta (
 )
 """)
 
+cur.execute("""
+CREATE TABLE IF NOT EXISTS replies (
+    admin_msg_id INTEGER PRIMARY KEY,
+    chat_id INTEGER,
+    user_msg_id INTEGER
+)
+""")
+
 conn.commit()
 
 def load_active_users():
@@ -128,18 +136,107 @@ def set_meta(key, value):
     )
     conn.commit()
 
+def save_reply_map(admin_msg_id, chat_id, user_msg_id):
+    cur.execute(
+        "INSERT OR REPLACE INTO replies VALUES (?, ?, ?)",
+        (admin_msg_id, chat_id, user_msg_id)
+    )
+    conn.commit()
+    set_meta(f"msg_ts:{admin_msg_id}", time.time())  # ثبت زمان پیام
+
+
+def get_reply_map(admin_msg_id):
+    cur.execute(
+        "SELECT chat_id, user_msg_id FROM replies WHERE admin_msg_id = ?",
+        (admin_msg_id,)
+    )
+    row = cur.fetchone()
+    if row:
+        return {"chat_id": row[0], "reply_to": row[1]}
+    return None
+
+# ================== پاکسازی خودکار ریپلای‌های قدیمی ==================
+CLEANUP_INTERVAL = 24 * 3600  # هر ۲۴ ساعت اجرا میشه
+REPLY_MAX_AGE = 30 * 24 * 3600  # ۳۰ روز
+
+def cleanup_old_replies():
+    while True:
+        now_ts = time.time()
+        cur.execute("SELECT admin_msg_id FROM replies")
+        rows = cur.fetchall()
+        removed = 0
+
+        for (admin_msg_id,) in rows:
+            try:
+                ts = float(get_meta(f"msg_ts:{admin_msg_id}", 0))
+                if now_ts - ts > REPLY_MAX_AGE:
+                    cur.execute("DELETE FROM replies WHERE admin_msg_id = ?", (admin_msg_id,))
+                    removed += 1
+            except:
+                continue
+
+        if removed:
+            conn.commit()
+            log_to_admin("INFO", f"🧹 پاکسازی ریپلای‌های قدیمی: {removed} مورد حذف شد")
+
+        time.sleep(CLEANUP_INTERVAL)
+
+# اجرا به صورت thread
+threading.Thread(target=cleanup_old_replies, daemon=True).start()
+
 active_users = load_active_users()
 waiting_for_maryam = set()
-reply_map = {}
 
-# ================== بن غیرمجاز ==================
+# ================== بن کامل و پاکسازی (نسخه اصلاح‌شده) ==================
 def ban_user(m):
     admin_stats["errors"] += 1
-    log_to_admin("INFO", "⛔️ بن کاربر غیرمجاز", m)
+    cid = m.chat.id
+    log_to_admin("INFO", "⛔️ بن و پاکسازی کامل کاربر", m)
+
+    # پاک کردن پیام‌های ریپلای ذخیره‌شده در دیتابیس
     try:
-        bot.block_user(m.chat.id)
+        cur.execute("SELECT user_msg_id FROM replies WHERE chat_id = ?", (cid,))
+        rows = cur.fetchall()
+        for (msg_id,) in rows:
+            try:
+                bot.delete_message(cid, msg_id)
+            except Exception as e:
+                log_to_admin("INFO", "❌ خطا در پاک کردن پیام کاربر", m, extra=str(e))
+        # پاک کردن از دیتابیس
+        cur.execute("DELETE FROM replies WHERE chat_id = ?", (cid,))
+        conn.commit()
+    except Exception as e:
+        log_to_admin("INFO", "❌ خطا در پاکسازی دیتابیس ریپلای‌ها", m, extra=str(e))
+
+    # پاک کردن داده‌های داخلی
+    msg_history.pop(cid, None)
+    msg_pool.pop(cid, None)
+    kiss_voice_history.pop(cid, None)
+    kiss_voice_pool.pop(cid, None)
+
+    # حذف از active_users و دیتابیس
+    if cid in active_users:
+        active_users.remove(cid)
+        remove_active_user(cid)
+
+    # **پاک کردن پیام‌های خود ربات**
+    try:
+        # پیام‌های فرستاده شده رو که تو replies ذخیره شدن پاک میکنیم
+        cur.execute("SELECT admin_msg_id FROM replies WHERE chat_id = ?", (cid,))
+        rows = cur.fetchall()
+        for (msg_id,) in rows:
+            try:
+                bot.delete_message(cid, msg_id)
+            except:
+                continue
     except:
         pass
+
+    # حذف کامل از waiting list
+    waiting_for_maryam.discard(cid)
+
+    log_to_admin("INFO", f"✅ کاربر {cid} پاکسازی شد (بلاک واقعی توی TeleBot حذف شده)")
+
 
 # ================== پیام‌های عاشقانه ==================
 romantic_messages = [
@@ -288,7 +385,7 @@ def all_messages(m):
     # 👑 پاسخ ریپلای‌دار ادمین (قابلیت جدید)
 # 👑 پاسخ ریپلای‌دار ادمین (نسخه حرفه‌ای)
     if cid == ADMIN_ID and m.reply_to_message:
-        data = reply_map.get(m.reply_to_message.message_id)
+        data = get_reply_map(m.reply_to_message.message_id)
 
         if not data:
             bot.reply_to(m, "❌ این پیام به کاربری وصل نیست")
@@ -312,10 +409,12 @@ def all_messages(m):
     if cid != ADMIN_ID:
         try:
             fwd = bot.forward_message(ADMIN_ID, cid, m.message_id)
-            reply_map[fwd.message_id] = {
-                "chat_id": cid,
-                "reply_to": m.message_id
-            }
+            save_reply_map(
+                admin_msg_id=fwd.message_id,
+                chat_id=cid,
+                user_msg_id=m.message_id
+            )
+
         except:
             pass
 
