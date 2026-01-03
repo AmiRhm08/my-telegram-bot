@@ -194,37 +194,10 @@ threading.Thread(target=cleanup_old_replies, daemon=True).start()
 
 active_users = load_active_users()
 waiting_for_maryam = set()
-
-# ================== بن کامل ==================
-def ban_user(m):
-    admin_stats["errors"] += 1
-    cid = m.chat.id
-    log_to_admin("INFO", "⛔️ بن و پاکسازی کامل کاربر", m)
-    try:
-        with conn:
-            cur = conn.cursor()
-            cur.execute("SELECT user_msg_id FROM replies WHERE chat_id = ?", (cid,))
-            rows = cur.fetchall()
-            for (msg_id,) in rows:
-                try:
-                    bot.delete_message(cid, msg_id)
-                except:
-                    pass
-            cur.execute("DELETE FROM replies WHERE chat_id = ?", (cid,))
-    except:
-        pass
-
-    msg_history.pop(cid, None)
-    msg_pool.pop(cid, None)
-    kiss_voice_history.pop(cid, None)
-    kiss_voice_pool.pop(cid, None)
-
-    if cid in active_users:
-        active_users.remove(cid)
-        remove_active_user(cid)
-
-    waiting_for_maryam.discard(cid)
-    log_to_admin("INFO", f"✅ کاربر {cid} پاکسازی شد (بلاک واقعی توی TeleBot حذف شده)")
+msg_history = {}
+msg_pool = {}
+kiss_voice_history = {}
+kiss_voice_pool = {}
 
 # ================== پیام‌های عاشقانه ==================
 romantic_messages = [
@@ -244,8 +217,6 @@ romantic_messages = [
 
 # ================== ضدتکرار پیام ==================
 MESSAGE_MEMORY = 5
-msg_history = {}
-msg_pool = {}
 
 def get_next_message(cid):
     if cid not in msg_history:
@@ -271,8 +242,7 @@ def get_next_message(cid):
     return msg
 
 # ================== ضدتکرار ویس بوس ==================
-kiss_voice_history = {}
-kiss_voice_pool = {}
+KISS_VOICE_MEMORY = 3
 
 def get_next_kiss_voice(cid):
     if cid not in kiss_voice_history:
@@ -364,8 +334,6 @@ def get_voice_id(m):
 # ================== پیام‌ها ==================
 @bot.message_handler(func=lambda m: True)
 def all_messages(m):
-    log_to_admin("DEBUG", "📩 پیام جدید", m)
-
     cid = m.chat.id
     text_raw = m.text or ""
     text = text_raw.lower()
@@ -373,9 +341,11 @@ def all_messages(m):
     # 👑 پاسخ ریپلای‌دار ادمین
     if cid == ADMIN_ID and m.reply_to_message:
         data = get_reply_map(m.reply_to_message.message_id)
+
         if not data:
             bot.reply_to(m, "❌ این پیام به کاربری وصل نیست")
             return
+
         try:
             bot.copy_message(
                 data["chat_id"],
@@ -389,15 +359,15 @@ def all_messages(m):
 
     # 📩 فوروارد پیام کاربر برای ادمین + ثبت مپینگ
     if cid != ADMIN_ID:
-        try:
+        if m.message_id not in getattr(m, "already_forwarded", set()):
             fwd = bot.forward_message(ADMIN_ID, cid, m.message_id)
             save_reply_map(
                 admin_msg_id=fwd.message_id,
                 chat_id=cid,
                 user_msg_id=m.message_id
             )
-        except:
-            pass
+            m.already_forwarded = {m.message_id}
+        return
 
     if cid not in active_users:
         if cid not in waiting_for_maryam:
@@ -409,24 +379,27 @@ def all_messages(m):
             waiting_for_maryam.discard(cid)
             active_users.add(cid)
             add_active_user(cid)
+
             log_to_admin("ACTION", "✅ تأیید مریمی", m)
+
             bot.send_message(
                 cid,
                 "از آشنایی باهات خوشبختم، سازنده‌م خیلی تعریفتو کرده پیشم و گفته که تو همه‌چیزشی."
             )
+
             bot.send_message(
                 cid,
                 "<b>شلام همسر عزیزتر از جونم، این برای توعه.💗</b>\n\n"
                 "هر وقت خواستی /stop رو بزن 💜",
                 reply_markup=LOVE_KEYBOARD
             )
+
             bot.send_message(cid, get_next_message(cid))
             return
         else:
             bot.send_message(cid, "آیا تو مریمی؟")
             return
 
-    # بوس / ماچ
     if text_raw.strip() == "بوس بوسیییی" or is_kiss(text_raw):
         try:
             vid = get_next_kiss_voice(cid)
@@ -443,14 +416,6 @@ def all_messages(m):
 
     if "دوستت دارم" in text or "عشقم" in text:
         bot.reply_to(m, "همه چیز منییی؛ عاچقتم ❤️")
-        return
-
-    # ✅ پیام‌های تعریف‌نشده → فقط فوروارد به ادمین
-    if cid != ADMIN_ID:
-        try:
-            bot.forward_message(ADMIN_ID, cid, m.message_id)
-        except:
-            pass
         return
 
 # ================== polling ==================
