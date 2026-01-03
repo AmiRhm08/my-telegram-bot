@@ -7,6 +7,10 @@ import random
 import sqlite3
 import re
 from collections import deque
+import io
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, MessageHandler, Filters, CallbackQueryHandler, CallbackContext
+import yt_dlp
 
 # ================== تنظیمات پایه ==================
 TOKEN = os.getenv("BOT_TOKEN")
@@ -36,21 +40,37 @@ KISS_VOICE_IDS = [
 KISS_VOICE_MEMORY = 3
 
 # ================== لاگ ادمین ==================
-LOG_LEVELS = {"INFO": True, "ACTION": True, "DEBUG": True}
+LOG_LEVELS = {
+    "INFO": True,
+    "ACTION": True,
+    "DEBUG": True,
+}
+
 ADMIN_LOG_COOLDOWN = 10
 _last_admin_logs = {}
-admin_stats = {"start": 0, "stop": 0, "kiss": 0, "errors": 0}
+
+admin_stats = {
+    "start": 0,
+    "stop": 0,
+    "kiss": 0,
+    "errors": 0,
+}
 
 def log_to_admin(level, title, m=None, extra=None):
     if not LOG_LEVELS.get(level, False):
         return
+
     now = time.time()
     key = f"{level}:{title}:{m.chat.id if m else ''}"
+
     if key in _last_admin_logs and now - _last_admin_logs[key] < ADMIN_LOG_COOLDOWN:
         return
+
     _last_admin_logs[key] = now
+
     try:
         msg = f"📌 {title}"
+
         if m:
             u = m.from_user
             msg += (
@@ -61,8 +81,10 @@ def log_to_admin(level, title, m=None, extra=None):
                 msg += f"\n پیام: {m.text}"
             else:
                 msg += f"\n پیام: [غیر متنی]"
+
         if extra:
             msg += f"\n {extra}"
+
         bot.send_message(ADMIN_ID, msg)
     except:
         pass
@@ -76,12 +98,14 @@ CREATE TABLE IF NOT EXISTS active_users (
     chat_id INTEGER PRIMARY KEY
 )
 """)
+
 cur.execute("""
 CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
     value TEXT
 )
 """)
+
 cur.execute("""
 CREATE TABLE IF NOT EXISTS replies (
     admin_msg_id INTEGER PRIMARY KEY,
@@ -89,6 +113,7 @@ CREATE TABLE IF NOT EXISTS replies (
     user_msg_id INTEGER
 )
 """)
+
 conn.commit()
 
 def load_active_users():
@@ -129,7 +154,7 @@ def save_reply_map(admin_msg_id, chat_id, user_msg_id):
             "INSERT OR REPLACE INTO replies VALUES (?, ?, ?)",
             (admin_msg_id, chat_id, user_msg_id)
         )
-    set_meta(f"msg_ts:{admin_msg_id}", time.time())
+    set_meta(f"msg_ts:{admin_msg_id}", time.time())  # ثبت زمان پیام
 
 def get_reply_map(admin_msg_id):
     with conn:
@@ -154,6 +179,7 @@ def cleanup_old_replies():
             cur = conn.cursor()
             cur.execute("SELECT admin_msg_id FROM replies")
             rows = cur.fetchall()
+
         removed = 0
         for (admin_msg_id,) in rows:
             try:
@@ -165,8 +191,10 @@ def cleanup_old_replies():
                     removed += 1
             except:
                 continue
+
         if removed:
             log_to_admin("INFO", f"🧹 پاکسازی ریپلای‌های قدیمی: {removed} مورد حذف شد")
+
         time.sleep(CLEANUP_INTERVAL)
 
 threading.Thread(target=cleanup_old_replies, daemon=True).start()
@@ -198,18 +226,22 @@ msg_pool = {}
 def get_next_message(cid):
     if cid not in msg_history:
         msg_history[cid] = deque(maxlen=MESSAGE_MEMORY)
+
     if cid not in msg_pool or not msg_pool[cid]:
         pool = romantic_messages[:]
         random.shuffle(pool)
         msg_pool[cid] = pool
+
     hist = msg_history[cid]
     pool = msg_pool[cid]
+
     for _ in range(len(pool)):
         msg = pool.pop(0)
         if msg not in hist:
             hist.append(msg)
             return msg
         pool.append(msg)
+
     msg = pool.pop(0)
     hist.append(msg)
     return msg
@@ -221,18 +253,22 @@ kiss_voice_pool = {}
 def get_next_kiss_voice(cid):
     if cid not in kiss_voice_history:
         kiss_voice_history[cid] = deque(maxlen=KISS_VOICE_MEMORY)
+
     if cid not in kiss_voice_pool or not kiss_voice_pool[cid]:
         pool = KISS_VOICE_IDS[:]
         random.shuffle(pool)
         kiss_voice_pool[cid] = pool
+
     hist = kiss_voice_history[cid]
     pool = kiss_voice_pool[cid]
+
     for _ in range(len(pool)):
         vid = pool.pop(0)
         if vid not in hist:
             hist.append(vid)
             return vid
         pool.append(vid)
+
     vid = pool.pop(0)
     hist.append(vid)
     return vid
@@ -270,12 +306,14 @@ def background_sender():
         if now - last_ts < SEND_INTERVAL:
             time.sleep(20)
             continue
+
         for cid in list(active_users):
             try:
                 bot.send_message(cid, get_next_message(cid))
                 time.sleep(1)
             except:
                 admin_stats["errors"] += 1
+
         set_meta("last_send_ts", now)
         log_to_admin("INFO", "💌 پیام عاشقانه ارسال شد")
 
@@ -298,20 +336,80 @@ def admin_send(m):
 def get_voice_id(m):
     if m.from_user.id == ADMIN_ID:
         bot.send_message(ADMIN_ID, f"🎧 file_id:\n{m.voice.file_id}")
-        
-# ================== دستور stop ==================
-@bot.message_handler(commands=["stop"])
-def stop_user(m):
-    cid = m.chat.id
-    if cid in active_users:
-        active_users.remove(cid)
-        remove_active_user(cid)
-        bot.send_message(
-            cid,
-            "فهمیدم کوچک، دیگه پیامی نمیادش،\nهر وقت دوباره خواستی  /start بزن ❤️\n دلم برایت تنگ میچه."
-        )
-    else:
-        bot.send_message(cid, "الان چیزی فعال نیست که متوقفش کنم 🙂")
+
+# ================== یوتیوب/اینستا لینک دانلود ==================
+URL_REGEX = re.compile(r"(https?://[^\s]+)")
+
+def handle_link(update: Update, context: CallbackContext):
+    text = update.message.text
+    urls = URL_REGEX.findall(text)
+    if not urls:
+        return
+    url = urls[0]
+    try:
+        with yt_dlp.YoutubeDL({}) as ydl:
+            info = ydl.extract_info(url, download=False)
+            formats = info.get("formats", [info])
+
+            buttons = []
+            added_formats = set()
+            for f in reversed(formats):
+                format_id = f["format_id"]
+                fmt_name = f.get("format_note") or f.get("ext") or "unknown"
+                filesize = f.get("filesize") or f.get("filesize_approx")
+                if (fmt_name, format_id) in added_formats:
+                    continue
+                added_formats.add((fmt_name, format_id))
+                if filesize:
+                    size_mb = round(filesize / (1024*1024), 2)
+                    if filesize > 2*1024*1024*1024:
+                        size_mb = f"{size_mb}MB (خیلی بزرگ)"
+                else:
+                    size_mb = "نامعلوم"
+                btn_text = f"{fmt_name} ({size_mb})"
+                buttons.append([InlineKeyboardButton(btn_text, callback_data=f"{url}|{format_id}")])
+
+            if not buttons:
+                update.message.reply_text("هیچ فرمت قابل دانلودی پیدا نشد.")
+                return
+
+            reply_markup = InlineKeyboardMarkup(buttons)
+            update.message.reply_text("کیفیت مورد نظر رو انتخاب کن:", reply_markup=reply_markup)
+
+    except Exception as e:
+        update.message.reply_text(f"خطا در پردازش لینک:\n{str(e)}")
+
+def download_and_send(context: CallbackContext, chat_id, url, format_id):
+    ydl_opts = {
+        "format": format_id,
+        "outtmpl": "-",
+        "noplaylist": True,
+        "quiet": True,
+    }
+
+    try:
+        buffer = io.BytesIO()
+        def write_hook(d):
+            pass
+        ydl_opts["progress_hooks"] = [write_hook]
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+
+        buffer.seek(0)
+        context.bot.send_document(chat_id=chat_id, document=buffer, filename="video.mp4")
+        buffer.close()
+
+    except Exception as e:
+        context.bot.send_message(chat_id=chat_id, text=f"خطا در دانلود:\n{str(e)}")
+
+def button_handler(update: Update, context: CallbackContext):
+    query = update.callback_query
+    query.answer()
+    url, format_id = query.data.split("|")
+    query.edit_message_text("دانلود شروع شد... ⏳")
+    t = threading.Thread(target=download_and_send, args=(context, query.message.chat_id, url, format_id))
+    t.start()
 
 # ================== پیام‌ها ==================
 @bot.message_handler(func=lambda m: True)
@@ -320,7 +418,7 @@ def all_messages(m):
     text_raw = m.text or ""
     text = text_raw.lower()
 
-    # 👑 پاسخ ریپلای‌دار ادمین (نسخه حرفه‌ای)
+    # ریپلای ادمین
     if cid == ADMIN_ID and m.reply_to_message:
         data = get_reply_map(m.reply_to_message.message_id)
         if not data:
@@ -333,11 +431,11 @@ def all_messages(m):
                 m.message_id,
                 reply_to_message_id=data["reply_to"]
             )
-        except Exception as e:
-            log_to_admin("INFO", "❌ خطا در ریپلای ادمین", extra=str(e))
+        except:
+            pass
         return
 
-    # 📩 فوروارد پیام کاربر برای ادمین + ثبت مپینگ (فقط یکبار)
+    # فوروارد پیام کاربر برای ادمین + ذخیره ریپلای
     if cid != ADMIN_ID:
         try:
             fwd = bot.forward_message(ADMIN_ID, cid, m.message_id)
@@ -358,23 +456,17 @@ def all_messages(m):
             waiting_for_maryam.discard(cid)
             active_users.add(cid)
             add_active_user(cid)
-            bot.send_message(
-                cid,
-                "از آشنایی باهات خوشبختم، سازنده‌م خیلی تعریفتو کرده پیشم و گفته که تو همه‌چیزشی."
-            )
-            bot.send_message(
-                cid,
-                "<b>شلام همسر عزیزتر از جونم، این برای توعه.💗</b>\n\n"
-                "هر وقت خواستی /stop رو بزن 💜",
-                reply_markup=LOVE_KEYBOARD
-            )
+            log_to_admin("ACTION", "✅ تأیید مریمی", m)
+            bot.send_message(cid, "از آشنایی باهات خوشبختم، سازنده‌م خیلی تعریفتو کرده پیشم و گفته که تو همه‌چیزشی.")
+            bot.send_message(cid, "<b>شلام همسر عزیزتر از جونم، این برای توعه.💗</b>\n\nهر وقت خواستی /stop رو بزن 💜",
+                             reply_markup=LOVE_KEYBOARD)
             bot.send_message(cid, get_next_message(cid))
             return
         else:
             bot.send_message(cid, "آیا تو مریمی؟")
             return
 
-    # 👄 ارسال ویس بوس
+    # بررسی بوس و ماچ
     if text_raw.strip() == "بوس بوسیییی" or is_kiss(text_raw):
         try:
             vid = get_next_kiss_voice(cid)
@@ -384,7 +476,7 @@ def all_messages(m):
             admin_stats["errors"] += 1
         return
 
-    # پاسخ‌های پیشفرض با کیبورد
+    # دستورات پیشفرض
     if "دلم واست تنگولیده" in text:
         bot.reply_to(m, f"{get_next_message(cid)}\n\nدل منم هر لحظه برات تنگولیده ❤️")
         return
