@@ -358,7 +358,6 @@ def all_messages(m):
             waiting_for_maryam.discard(cid)
             active_users.add(cid)
             add_active_user(cid)
-            log_to_admin("ACTION", "✅ تأیید مریمی", m)
             bot.send_message(
                 cid,
                 "از آشنایی باهات خوشبختم، سازنده‌م خیلی تعریفتو کرده پیشم و گفته که تو همه‌چیزشی."
