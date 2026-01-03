@@ -55,18 +55,13 @@ admin_stats = {
 def log_to_admin(level, title, m=None, extra=None):
     if not LOG_LEVELS.get(level, False):
         return
-
     now = time.time()
     key = f"{level}:{title}:{m.chat.id if m else ''}"
-
     if key in _last_admin_logs and now - _last_admin_logs[key] < ADMIN_LOG_COOLDOWN:
         return
-
     _last_admin_logs[key] = now
-
     try:
         msg = f"📌 {title}"
-
         if m:
             u = m.from_user
             msg += (
@@ -77,10 +72,8 @@ def log_to_admin(level, title, m=None, extra=None):
                 msg += f"\n پیام: {m.text}"
             else:
                 msg += f"\n پیام: [غیر متنی]"
-
         if extra:
             msg += f"\n {extra}"
-
         bot.send_message(ADMIN_ID, msg)
     except:
         pass
@@ -89,20 +82,17 @@ def log_to_admin(level, title, m=None, extra=None):
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 
 cur = conn.cursor()
-
 cur.execute("""
 CREATE TABLE IF NOT EXISTS active_users (
     chat_id INTEGER PRIMARY KEY
 )
 """)
-
 cur.execute("""
 CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
     value TEXT
 )
 """)
-
 cur.execute("""
 CREATE TABLE IF NOT EXISTS replies (
     admin_msg_id INTEGER PRIMARY KEY,
@@ -110,7 +100,6 @@ CREATE TABLE IF NOT EXISTS replies (
     user_msg_id INTEGER
 )
 """)
-
 conn.commit()
 
 def load_active_users():
@@ -176,7 +165,6 @@ def cleanup_old_replies():
             cur = conn.cursor()
             cur.execute("SELECT admin_msg_id FROM replies")
             rows = cur.fetchall()
-
         removed = 0
         for (admin_msg_id,) in rows:
             try:
@@ -188,48 +176,14 @@ def cleanup_old_replies():
                     removed += 1
             except:
                 continue
-
         if removed:
             log_to_admin("INFO", f"🧹 پاکسازی ریپلای‌های قدیمی: {removed} مورد حذف شد")
-
         time.sleep(CLEANUP_INTERVAL)
 
 threading.Thread(target=cleanup_old_replies, daemon=True).start()
 
 active_users = load_active_users()
 waiting_for_maryam = set()
-
-# ================== بن کامل و پاکسازی ==================
-def ban_user(m):
-    admin_stats["errors"] += 1
-    cid = m.chat.id
-    log_to_admin("INFO", "⛔️ بن و پاکسازی کامل کاربر", m)
-
-    try:
-        cur.execute("SELECT user_msg_id FROM replies WHERE chat_id = ?", (cid,))
-        rows = cur.fetchall()
-        for (msg_id,) in rows:
-            try:
-                bot.delete_message(cid, msg_id)
-            except:
-                continue
-        cur.execute("DELETE FROM replies WHERE chat_id = ?", (cid,))
-        conn.commit()
-    except:
-        pass
-
-    msg_history.pop(cid, None)
-    msg_pool.pop(cid, None)
-    kiss_voice_history.pop(cid, None)
-    kiss_voice_pool.pop(cid, None)
-
-    if cid in active_users:
-        active_users.remove(cid)
-        remove_active_user(cid)
-
-    waiting_for_maryam.discard(cid)
-
-    log_to_admin("INFO", f"✅ کاربر {cid} پاکسازی شد (بلاک واقعی توی TeleBot حذف شده)")
 
 # ================== پیام‌های عاشقانه ==================
 romantic_messages = [
@@ -244,7 +198,7 @@ romantic_messages = [
     "نگاه تو روشن شبای بی‌چراغم.",
     "قفل چشاتم.",
     "دلم میخوادت.",
-    "دوستت دارم تنها ماهِ آسمونِ قلبم:)"
+    "دوستت دارم تنها ماهِ آسمونِ قلبم:)",
 ]
 
 # ================== ضدتکرار پیام ==================
@@ -259,17 +213,14 @@ def get_next_message(cid):
         pool = romantic_messages[:]
         random.shuffle(pool)
         msg_pool[cid] = pool
-
     hist = msg_history[cid]
     pool = msg_pool[cid]
-
     for _ in range(len(pool)):
         msg = pool.pop(0)
         if msg not in hist:
             hist.append(msg)
             return msg
         pool.append(msg)
-
     msg = pool.pop(0)
     hist.append(msg)
     return msg
@@ -285,17 +236,14 @@ def get_next_kiss_voice(cid):
         pool = KISS_VOICE_IDS[:]
         random.shuffle(pool)
         kiss_voice_pool[cid] = pool
-
     hist = kiss_voice_history[cid]
     pool = kiss_voice_pool[cid]
-
     for _ in range(len(pool)):
         vid = pool.pop(0)
         if vid not in hist:
             hist.append(vid)
             return vid
         pool.append(vid)
-
     vid = pool.pop(0)
     hist.append(vid)
     return vid
@@ -330,14 +278,12 @@ def background_sender():
         if now - last_ts < SEND_INTERVAL:
             time.sleep(20)
             continue
-
         for cid in list(active_users):
             try:
                 bot.send_message(cid, get_next_message(cid))
                 time.sleep(1)
             except:
                 admin_stats["errors"] += 1
-
         set_meta("last_send_ts", now)
         log_to_admin("INFO", "💌 پیام عاشقانه ارسال شد")
 
@@ -381,8 +327,8 @@ def all_messages(m):
                 m.message_id,
                 reply_to_message_id=data["reply_to"]
             )
-        except:
-            pass
+        except Exception as e:
+            log_to_admin("INFO", "❌ خطا در ریپلای ادمین", extra=str(e))
         return
 
     # 📩 فوروارد پیام کاربر برای ادمین + ثبت مپینگ
@@ -402,56 +348,59 @@ def all_messages(m):
             waiting_for_maryam.add(cid)
             bot.send_message(cid, "آیا تو مریمی؟")
             return
-
         if any(x in text for x in ("آره", "اره", "بله", "مریم", "هوم", "هستم")):
             waiting_for_maryam.discard(cid)
             active_users.add(cid)
             add_active_user(cid)
-
             log_to_admin("ACTION", "✅ تأیید مریمی", m)
-
             bot.send_message(
                 cid,
                 "از آشنایی باهات خوشبختم، سازنده‌م خیلی تعریفتو کرده پیشم و گفته که تو همه‌چیزشی."
             )
-
             bot.send_message(
                 cid,
                 "<b>شلام همسر عزیزتر از جونم، این برای توعه.💗</b>\n\n"
                 "هر وقت خواستی /stop رو بزن 💜",
                 reply_markup=LOVE_KEYBOARD
             )
-
             bot.send_message(cid, get_next_message(cid))
             return
         else:
             bot.send_message(cid, "آیا تو مریمی؟")
             return
 
-    # 📩 بررسی بوس
-    for word in text.strip().split():
-        if is_kiss(word) or text_raw.strip() == "بوس بوسیییی":
-            try:
-                vid = get_next_kiss_voice(cid)
-                bot.send_voice(cid, vid, reply_to_message_id=m.message_id)
-                admin_stats["kiss"] += 1
-            except:
-                admin_stats["errors"] += 1
-            return
+    # 🫂 بوس و ماچ
+    if "بوس" in text_raw.lower() or "بوووس" in text_raw.lower() or "ماچ" in text_raw.lower():
+        words = text_raw.split()
+        for word in words:
+            if is_kiss(word):
+                try:
+                    vid = get_next_kiss_voice(cid)
+                    bot.send_voice(cid, vid, reply_to_message_id=m.message_id)
+                    admin_stats["kiss"] += 1
+                except:
+                    admin_stats["errors"] += 1
+                return
 
+    if text_raw.strip() == "بوس بوسیییی":
+        try:
+            vid = get_next_kiss_voice(cid)
+            bot.send_voice(cid, vid, reply_to_message_id=m.message_id)
+            admin_stats["kiss"] += 1
+        except:
+            admin_stats["errors"] += 1
+        return
+
+    # پاسخ‌های دکمه و عاشقانه
     if "دلم واست تنگولیده" in text:
         bot.reply_to(m, f"{get_next_message(cid)}\n\nدل منم هر لحظه برات تنگولیده ❤️")
         return
-
     if "دوستت دارم" in text or "عشقم" in text:
         bot.reply_to(m, "همه چیز منییی؛ عاچقتم ❤️")
         return
 
-    # اگر پیام در هیچ دسته‌بندی نبود، هیچ کاری انجام نمیده، فقط به ادمین فوروارد شده قبلیه
-
 # ================== polling ==================
 bot.delete_webhook(drop_pending_updates=True)
-
 while True:
     try:
         bot.infinity_polling(timeout=60, long_polling_timeout=60, skip_pending=True)
